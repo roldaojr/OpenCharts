@@ -15,6 +15,8 @@ import { Terminal } from "./terminal/Terminal.tsx";
  * Which backend runs is chosen at build time:
  *  - `VITE_ADAPTER=hyperliquid`, or no `VITE_ADAPTER` with `VITE_HL_BUILDER_ADDRESS`
  *    set: the Hyperliquid broker (live markets, real wallet, real orders).
+ *  - `VITE_ADAPTER=rithmic`: the Rithmic broker (sign-in screen, futures market
+ *    data and order routing over R|Protocol). See src/rithmic/README.md.
  *  - `VITE_ADAPTER=binance`: the live-market-data example from examples/binance-adapter.
  *  - `VITE_ADAPTER=demo`, or nothing configured: the bundled demo data.
  *
@@ -25,6 +27,7 @@ import { Terminal } from "./terminal/Terminal.tsx";
 const choice = chooseAdapter(import.meta.env);
 
 const HyperliquidApp = lazy(() => import("./hyperliquid/ui/HyperliquidApp.tsx"));
+const RithmicApp = lazy(() => import("./rithmic/ui/RithmicApp.tsx"));
 
 function Loading() {
   return (
@@ -64,6 +67,13 @@ export function Root() {
     return (
       <Suspense fallback={<Loading />}>
         <HyperliquidApp />
+      </Suspense>
+    );
+  }
+  if (choice === "rithmic") {
+    return (
+      <Suspense fallback={<Loading />}>
+        <RithmicApp />
       </Suspense>
     );
   }

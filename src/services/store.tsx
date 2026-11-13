@@ -389,11 +389,12 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   loadSymbols: async () => {
     const symbols = await api.getSymbols();
     set({ symbols });
-    // Hyperliquid has no demo "BTCUSD": land on a real market (prefer BTC) once symbols load.
-    if (isHyperliquidMode() && symbols.length > 0) {
+    // Live adapters (Hyperliquid, Rithmic futures) have no demo "BTCUSD": land on
+    // a real market once symbols load (BTC on Hyperliquid, else the first listed).
+    if (symbols.length > 0) {
       const cur = get().selectedSymbol;
       if (!symbols.some((x) => x.name === cur)) {
-        const pick = symbols.find((x) => x.name === "BTC") ?? symbols[0];
+        const pick = (isHyperliquidMode() ? symbols.find((x) => x.name === "BTC") : undefined) ?? symbols[0];
         if (pick) get().setSelectedSymbol(pick.name);
       }
     }

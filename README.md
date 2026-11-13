@@ -31,6 +31,7 @@ Advanced charting · full drawing-tool suite · 8 indicators · session replay �
 - [Refreshing the bundled market data](#refreshing-the-bundled-market-data)
 - [Integrating OpenCharts](#integrating-opencharts)
 - [Hyperliquid broker](#hyperliquid-broker)
+- [Rithmic broker](#rithmic-broker)
 - [Adding instruments](#adding-instruments)
 - [Configuration](#configuration)
 - [Scripts](#scripts)
@@ -778,6 +779,28 @@ nothing. The Hyperliquid adapter is not part of the npm package's core entry; on
 - Third-party (HIP-3) markets carry a risk badge. Stocks, forex and commodities show an informational note
   outside their usual hours: trading stays available, but the price follows an oracle that can be stale.
 - Sample-data panels (news, calendar) and the simulated depth ladder are not shown.
+
+## Rithmic broker
+
+`VITE_ADAPTER=rithmic` turns the terminal into a futures trading front end for
+[Rithmic](https://www.rithmic.com/). The adapter speaks R|Protocol (protobuf over
+WebSocket) straight from the browser, so there is still no backend.
+
+- **Sign-in:** the app opens on a sign-in screen. You pick the gateway and system and
+  enter your Rithmic user and password. The password lives only in memory for the
+  session.
+- **Market data:** front-month contracts for the configured products, historical time
+  bars, live best bid/offer, and bars built from live trades.
+- **Trading:** market, limit, stop and stop-limit orders, which you can modify and
+  cancel. Take profit and stop loss go in as Rithmic bracket orders.
+- **Account state:** working orders, net positions with live PnL, and account balances.
+
+```bash
+VITE_ADAPTER=rithmic npm run dev
+```
+
+Setup, environment variables, the protocol mapping and current limitations are covered
+in [src/rithmic/README.md](src/rithmic/README.md).
 
 ## Adding instruments
 

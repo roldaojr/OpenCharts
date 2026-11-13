@@ -10,6 +10,8 @@
  *    sepolia-rollup.arbitrum.io (testnet)
  *  - env-driven URLs, appended automatically at build time by vite.config.ts:
  *    VITE_GEO_CHECK_URL, VITE_SCREEN_URL, VITE_FEE_CONFIG_URL, VITE_API_URL
+ *  - Rithmic builds (VITE_ADAPTER=rithmic): the R|Protocol gateways
+ *    (RITHMIC_CONNECT_ORIGINS) plus VITE_RITHMIC_GATEWAY
  *
  * Script policy is `'self'` only: the production index.html has no inline
  * script. Styles allow 'unsafe-inline' because lightweight-charts injects a
@@ -26,6 +28,12 @@ export const HL_CONNECT_ORIGINS: readonly string[] = [
   "https://sepolia-rollup.arbitrum.io",
 ];
 
+/**
+ * Rithmic R|Protocol gateways are WebSocket-only hosts under rithmic.com; the
+ * sign-in screen may pick any of them, so the whole subdomain is allowed.
+ */
+export const RITHMIC_CONNECT_ORIGINS: readonly string[] = ["wss://*.rithmic.com"];
+
 export interface CspOptions {
   /** Extra connect-src origins (already origin-only, e.g. "https://geo.example.com"). */
   extraConnect?: readonly string[];
@@ -35,13 +43,17 @@ export interface CspOptions {
   allowTradingView?: boolean;
 }
 
-/** Reduce a URL to its origin; undefined for relative / invalid / non-http(s) URLs (those are covered by 'self'). */
+const CONNECT_PROTOCOLS = new Set(["https:", "http:", "wss:", "ws:"]);
+
+/** Reduce a URL to its origin; undefined for relative / invalid / non-http(s)/ws(s) URLs (those are covered by 'self'). */
 export function originOf(url: string | undefined): string | undefined {
   const v = url?.trim();
   if (!v) return undefined;
   try {
     const u = new URL(v);
-    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;
+    if (!CONNECT_PROTOCOLS.has(u.protocol) || !u.host) return undefined;
+    // URL.origin is "null" for ws(s) in some runtimes; build it from the parts.
+    return `${u.protocol}//${u.host}`;
   } catch {
     return undefined;
   }
@@ -57,6 +69,11 @@ export function extraConnectFromEnv(env: Record<string, string | undefined>): st
   for (const part of (env.VITE_CSP_EXTRA_CONNECT ?? "").split(/[\s,]+/)) {
     const o = originOf(part);
     if (o) out.add(o);
+  }
+  if (env.VITE_ADAPTER?.trim().toLowerCase() === "rithmic") {
+    for (const o of RITHMIC_CONNECT_ORIGINS) out.add(o);
+    const gw = originOf(env.VITE_RITHMIC_GATEWAY);
+    if (gw) out.add(gw);
   }
   return [...out];
 }

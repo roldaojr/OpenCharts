@@ -42,6 +42,14 @@ describe("csp", () => {
     expect(originOf("not a url")).toBeUndefined();
   });
 
+  it("allows the Rithmic gateways only in Rithmic builds", () => {
+    expect(originOf("wss://rituz00100.rithmic.com:443")).toBe("wss://rituz00100.rithmic.com");
+    expect(extraConnectFromEnv({ VITE_RITHMIC_GATEWAY: "wss://gw.example:443" })).toEqual([]);
+    const extra = extraConnectFromEnv({ VITE_ADAPTER: "rithmic", VITE_RITHMIC_GATEWAY: "wss://gw.example:8443/x" });
+    expect(extra).toEqual(["wss://*.rithmic.com", "wss://gw.example:8443"]);
+    expect(directive(buildCsp(), "connect-src")).not.toContain("wss://*.rithmic.com");
+  });
+
   it("public/_headers matches the generated default (no drift)", () => {
     const body = publicHeaders
       .split("\n")

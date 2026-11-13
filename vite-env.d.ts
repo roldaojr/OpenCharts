@@ -25,6 +25,15 @@ interface ImportMetaEnv {
   readonly VITE_CSP_ALLOW_TRADINGVIEW?: string;
   /** Legacy demo-backend base URL (non-Hyperliquid builds). */
   readonly VITE_API_URL?: string;
+  /** Rithmic R|Protocol gateway (wss://...). Default: the Rithmic test gateway. */
+  readonly VITE_RITHMIC_GATEWAY?: string;
+  /** App name/version sent at Rithmic login; production needs conformance-approved values. */
+  readonly VITE_RITHMIC_APP_NAME?: string;
+  readonly VITE_RITHMIC_APP_VERSION?: string;
+  /** Comma-separated PRODUCT:EXCHANGE list resolved to front-month contracts, e.g. "ES:CME,CL:NYMEX". */
+  readonly VITE_RITHMIC_PRODUCTS?: string;
+  /** PRODUCT:CONTRACT overrides for ES/MES/NQ/MNQ, e.g. "ES:ESH7". Default: the current quarterly contract. */
+  readonly VITE_RITHMIC_CONTRACTS?: string;
 }
 
 interface GoogleAccountsId {

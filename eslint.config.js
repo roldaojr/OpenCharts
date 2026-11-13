@@ -13,7 +13,17 @@ import tseslint from "typescript-eslint";
  * with `npm run lint`.
  */
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "coverage", "src/services/demo/data"] },
+  {
+    ignores: [
+      "dist",
+      "node_modules",
+      "coverage",
+      "src/services/demo/data",
+      // Rithmic: protobufjs output (npm run gen:rithmic) and the vendor SDK samples.
+      "src/rithmic/generated",
+      "src/rithmic/samples",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
