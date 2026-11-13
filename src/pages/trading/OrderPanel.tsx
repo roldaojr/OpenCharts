@@ -9,7 +9,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useAuthStore } from "../../services/store.tsx";
+import { useAuthStore, useTradingStore } from "../../services/store.tsx";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { readTraderPrefs } from "../../hooks/useTraderPreferences.ts";
 import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
@@ -23,6 +23,11 @@ import type { ConfirmOrderState } from "../../terminal/use-terminal.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
 
 type ConfirmableOrder = NonNullable<ConfirmOrderState>;
+
+/** The account's label (adapters put the account number in it), else its id. */
+function accountOptionLabel(a: { id: string; label: string | null }): string {
+  return a.label || a.id;
+}
 
 // The Hyperliquid ticket (fees, leverage, margin mode) is loaded on demand so
 // it never reaches the default demo bundle.
@@ -81,6 +86,8 @@ function GenericOrderPanel({
   onOrderSuccess,
 }: OrderPanelProps) {
   const isDemo = useAuthStore((s) => s.isDemo);
+  const accounts = useTradingStore((s) => s.accounts);
+  const setActiveAccount = useTradingStore((s) => s.setActiveAccount);
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
   const { qty: rules, unitLabel } = useInstrumentLabels();
@@ -253,6 +260,29 @@ function GenericOrderPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {/* Account: always shown, even with one account, so the target is never a guess. */}
+        <div>
+          <label htmlFor="order-account" className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            Account
+          </label>
+          <select
+            id="order-account"
+            data-testid="order-account-select"
+            value={accounts.length > 0 ? (accountId ?? "") : ""}
+            onChange={(e) => setActiveAccount(e.target.value)}
+            disabled={accounts.length === 0 || placeOrder.isPending}
+            className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-xs"
+          >
+            {accounts.length === 0 && <option value="">No accounts</option>}
+            {accounts.length > 0 && !accounts.some((a) => a.id === accountId) && <option value="">Select an account</option>}
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {accountOptionLabel(a)}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Side */}
         <div className="grid grid-cols-2 gap-1">
           <Button
