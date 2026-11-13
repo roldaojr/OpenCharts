@@ -2,6 +2,8 @@ import type {
   Candle,
   CandleRequest,
   ConnectionState,
+  DepthBook,
+  DepthLevel,
   MarketDataSource,
   MarketEvent,
   Quote,
@@ -20,7 +22,9 @@ import { T } from "./templates.ts";
  * History: `RequestTimeBarReplay` (202) on the history plant. Live: the ticker
  * plant's `RequestMarketDataUpdate` (100) with LAST_TRADE | BBO; best bid/offer
  * frames become `tick` events and trades update the forming bar of every
- * charted timeframe of that symbol, emitted as `candle` events.
+ * charted timeframe of that symbol, emitted as `candle` events. The depth
+ * panel adds the ORDER_BOOK bit and receives `OrderBook` (156) frames, kept as
+ * an aggregated book per symbol.
  *
  * Units (matching src/pages/trading/ChartPanel.tsx): `Candle.time` and the
  * candle event `timestamp` are the bar's OPEN time in SECONDS; tick
@@ -52,6 +56,26 @@ const MAX_CHART_STREAMS = 6;
 const MAX_INTEREST_SUBSCRIPTIONS = 30;
 const REPLAY_TIMEOUT_MS = 60_000;
 const QUOTE_WAIT_MS = 3_000;
+/** Levels per side handed to `subscribeDepth` handlers. */
+export const DEPTH_LEVELS = 20;
+
+const Bits = rti.RequestMarketDataUpdate.UpdateBits;
+const QUOTE_BITS = Bits.LAST_TRADE | Bits.BBO;
+
+interface BookState {
+  bids: Map<number, DepthLevel>;
+  asks: Map<number, DepthLevel>;
+  /** Inside a (possibly multi-frame) snapshot image. */
+  inSnapshot: boolean;
+  emitQueued: boolean;
+  timestamp: number;
+}
+
+/** Best `n` levels: bids high to low, asks low to high. */
+export function topLevels(levels: Map<number, DepthLevel>, side: "bid" | "ask", n = DEPTH_LEVELS): DepthLevel[] {
+  const sorted = [...levels.values()].sort((a, b) => (side === "bid" ? b.price - a.price : a.price - b.price));
+  return sorted.slice(0, n);
+}
 
 /**
  * Whether a time bar's `marker` is its close time rather than its open time.
@@ -70,6 +94,7 @@ export interface RithmicMarketDataDeps {
 export interface RithmicMarketData extends MarketDataSource {
   /** Last known top of book, if subscribed. */
   peekQuote(symbol: string): Quote | null;
+  subscribeDepth(symbol: string, handler: (book: DepthBook) => void): Unsubscribe;
 }
 
 export function barToCandle(
@@ -112,8 +137,11 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
   /** symbol|timeframe → chart, most recent last. */
   const chartKeys = new Map<string, { symbol: string; timeframe: string }>();
   const forming = new Map<string, Candle>();
-  /** Symbols with a live market-data subscription on the ticker plant. */
-  const subscribed = new Set<string>();
+  /** Update bits currently subscribed on the ticker plant, per symbol. */
+  const subscribed = new Map<string, number>();
+  /** Depth-panel handlers per symbol, and the book kept for them. */
+  const depthSubs = new Map<string, Set<(book: DepthBook) => void>>();
+  const books = new Map<string, BookState>();
   const temporary = new Set<string>();
   let interest: string[] = [];
   let started = false;
@@ -131,14 +159,14 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
 
   // ── Live ────────────────────────────────────────────────
 
-  function sendSubscription(inst: RithmicInstrument, on: boolean): Promise<unknown> {
+  function sendSubscription(inst: RithmicInstrument, on: boolean, updateBits: number): Promise<unknown> {
     const Req = rti.RequestMarketDataUpdate;
     return ticker.request(Req, {
       templateId: T.RequestMarketDataUpdate,
       symbol: inst.symbol,
       exchange: inst.exchange,
       request: on ? Req.Request.SUBSCRIBE : Req.Request.UNSUBSCRIBE,
-      updateBits: Req.UpdateBits.LAST_TRADE | Req.UpdateBits.BBO,
+      updateBits,
     });
   }
 
@@ -153,26 +181,134 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
     return want;
   }
 
+  /**
+   * Bring the ticker plant's subscriptions in line with what is on screen:
+   * LAST_TRADE | BBO for charted and watched symbols, plus ORDER_BOOK for
+   * symbols with a depth panel. Only the bits that change are sent.
+   */
   function reconcile(): void {
     if (!started || ticker.getState() !== "connected") return;
     const want = desired();
-    for (const symbol of want) {
-      if (subscribed.has(symbol)) continue;
+    const symbols = new Set([...want, ...depthSubs.keys(), ...subscribed.keys()]);
+    for (const symbol of symbols) {
+      const target = (want.has(symbol) ? QUOTE_BITS : 0) | (depthSubs.has(symbol) ? Bits.ORDER_BOOK : 0);
+      const current = subscribed.get(symbol) ?? 0;
+      if (target === current) continue;
       const inst = registry.get(symbol);
       if (!inst) continue;
-      subscribed.add(symbol);
-      sendSubscription(inst, true).catch((err: unknown) => {
-        subscribed.delete(symbol);
-        console.warn(`[rithmic] market data subscription for ${symbol} failed:`, describe(err));
-      });
+      const removed = current & ~target;
+      const added = target & ~current;
+      if (target) subscribed.set(symbol, target);
+      else subscribed.delete(symbol);
+      if (removed & QUOTE_BITS) quotes.delete(symbol);
+      if (removed & Bits.ORDER_BOOK) books.delete(symbol);
+      if (removed) sendSubscription(inst, false, removed).catch(() => undefined);
+      if (added) {
+        sendSubscription(inst, true, added).catch((err: unknown) => {
+          const left = (subscribed.get(symbol) ?? 0) & ~added;
+          if (left) subscribed.set(symbol, left);
+          else subscribed.delete(symbol);
+          console.warn(`[rithmic] market data subscription for ${symbol} failed:`, describe(err));
+        });
+      }
     }
-    for (const symbol of [...subscribed]) {
-      if (want.has(symbol)) continue;
-      subscribed.delete(symbol);
-      quotes.delete(symbol);
-      const inst = registry.get(symbol);
-      if (inst) sendSubscription(inst, false).catch(() => undefined);
+  }
+
+  // ── Order book ──────────────────────────────────────────
+
+  function bookFor(symbol: string): BookState {
+    let b = books.get(symbol);
+    if (!b) {
+      b = { bids: new Map(), asks: new Map(), inSnapshot: false, emitQueued: false, timestamp: 0 };
+      books.set(symbol, b);
     }
+    return b;
+  }
+
+  function snapshotOf(symbol: string, b: BookState): DepthBook {
+    return {
+      symbol,
+      bids: topLevels(b.bids, "bid"),
+      asks: topLevels(b.asks, "ask"),
+      timestamp: b.timestamp || now(),
+    };
+  }
+
+  function emitBook(symbol: string): void {
+    const b = books.get(symbol);
+    const subs = depthSubs.get(symbol);
+    if (!b || !subs) return;
+    const book = snapshotOf(symbol, b);
+    for (const h of [...subs]) {
+      try {
+        h(book);
+      } catch (err) {
+        console.error("[rithmic] depth handler threw", err);
+      }
+    }
+  }
+
+  function applySide(
+    levels: Map<number, DepthLevel>,
+    prices: number[] | null | undefined,
+    sizes: number[] | null | undefined,
+    orders: number[] | null | undefined,
+  ): void {
+    if (!prices) return;
+    prices.forEach((price, i) => {
+      if (!Number.isFinite(price)) return;
+      const size = sizes?.[i] ?? 0;
+      const count = orders?.[i];
+      if (size <= 0) levels.delete(price);
+      else levels.set(price, count ? { price, size, orders: count } : { price, size });
+    });
+  }
+
+  function onOrderBook(m: rti.OrderBook): void {
+    const symbol = m.symbol;
+    if (!symbol || !depthSubs.has(symbol)) return;
+    const U = rti.OrderBook.UpdateType;
+    const P = rti.OrderBook.PresenceBits;
+    const b = bookFor(symbol);
+    const type = m.updateType || U.SOLO;
+    if (m.ssboe) b.timestamp = m.ssboe * 1000 + Math.floor((m.usecs ?? 0) / 1000);
+
+    if (type === U.CLEAR_ORDER_BOOK || type === U.NO_BOOK) {
+      b.bids.clear();
+      b.asks.clear();
+      b.inSnapshot = false;
+      emitBook(symbol);
+      return;
+    }
+    if (type === U.SNAPSHOT_IMAGE) {
+      // A snapshot may span several frames: the first one replaces the book.
+      if (!b.inSnapshot) {
+        b.bids.clear();
+        b.asks.clear();
+        b.inSnapshot = true;
+      }
+    } else {
+      b.inSnapshot = false;
+    }
+    // Presence bits say which sides the frame carries; without them, read both.
+    const present = m.presenceBits || P.BID | P.ASK;
+    if (present & P.BID) applySide(b.bids, m.bidPrice, m.bidSize, m.bidOrders);
+    if (present & P.ASK) applySide(b.asks, m.askPrice, m.askSize, m.askOrders);
+
+    if (type === U.SNAPSHOT_IMAGE) {
+      // The snapshot's frames arrive back to back: emit once they are all in.
+      if (!b.emitQueued) {
+        b.emitQueued = true;
+        setTimeout(() => {
+          b.emitQueued = false;
+          b.inSnapshot = false;
+          emitBook(symbol);
+        }, 0);
+      }
+      return;
+    }
+    if (type === U.BEGIN || type === U.MIDDLE) return;
+    emitBook(symbol);
   }
 
   function onBbo(m: rti.BestBidOffer): void {
@@ -420,9 +556,11 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
       teardown.push(
         ticker.on<rti.BestBidOffer>(T.BestBidOffer, onBbo),
         ticker.on<rti.LastTrade>(T.LastTrade, onTrade),
+        ticker.on<rti.OrderBook>(T.OrderBook, onOrderBook),
         ticker.onReconnect(() => {
-          // Server-side subscriptions died with the old socket.
+          // Server-side subscriptions and books died with the old socket.
           subscribed.clear();
+          books.clear();
           reconcile();
         }),
         ticker.onState((s) => {
@@ -437,15 +575,17 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
 
     disconnect(): void {
       if (!started) return;
-      for (const symbol of subscribed) {
+      for (const [symbol, bits] of subscribed) {
         const inst = registry.get(symbol);
-        if (inst && ticker.getState() === "connected") sendSubscription(inst, false).catch(() => undefined);
+        if (inst && ticker.getState() === "connected") sendSubscription(inst, false, bits).catch(() => undefined);
       }
       started = false;
       for (const off of teardown.splice(0)) off();
       subscribed.clear();
       quotes.clear();
       forming.clear();
+      depthSubs.clear();
+      books.clear();
     },
 
     onConnectionChange(handler: (state: ConnectionState) => void): Unsubscribe {
@@ -465,6 +605,30 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
     setSymbolInterest(symbols: string[]): void {
       interest = [...new Set(symbols)];
       reconcile();
+    },
+
+    subscribeDepth(symbol: string, handler: (book: DepthBook) => void): Unsubscribe {
+      let set = depthSubs.get(symbol);
+      const first = !set;
+      if (!set) {
+        set = new Set();
+        depthSubs.set(symbol, set);
+      }
+      set.add(handler);
+      if (first) {
+        if (registry.get(symbol)) reconcile();
+        else registry.require(symbol).then(reconcile, () => undefined);
+      } else {
+        // A later subscriber gets the current book right away.
+        const b = books.get(symbol);
+        if (b) handler(snapshotOf(symbol, b));
+      }
+      return () => {
+        const cur = depthSubs.get(symbol);
+        if (!cur?.delete(handler) || cur.size > 0) return;
+        depthSubs.delete(symbol);
+        reconcile();
+      };
     },
   };
 }

@@ -17,6 +17,8 @@ export type {
   Candle,
   ClosedPosition,
   ConnectionState,
+  DepthBook,
+  DepthLevel,
   MarketDataSource,
   MarketEvent,
   OpenChartsAdapter,

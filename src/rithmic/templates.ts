@@ -33,6 +33,7 @@ export const T = {
   ResponseFrontMonthContract: 114,
   LastTrade: 150, // ✔
   BestBidOffer: 151, // ✔
+  OrderBook: 156,
 
   // history plant
   RequestTimeBarReplay: 202,
@@ -106,6 +107,7 @@ export const DECODERS: Readonly<Record<number, MessageCodec<unknown>>> = {
   [T.ResponseFrontMonthContract]: rti.ResponseFrontMonthContract,
   [T.LastTrade]: rti.LastTrade,
   [T.BestBidOffer]: rti.BestBidOffer,
+  [T.OrderBook]: rti.OrderBook,
   [T.ResponseTimeBarReplay]: rti.ResponseTimeBarReplay,
   [T.ResponseResumeBars]: rti.ResponseResumeBars,
   [T.ResponseLoginInfo]: rti.ResponseLoginInfo,

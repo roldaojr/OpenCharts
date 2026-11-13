@@ -80,7 +80,7 @@ export function OrderTicket() {
 /** Depth ladder around the live mid price. */
 export function DepthLadder() {
   const t = useTerminal();
-  return <DOMPanel symbol={t.selectedSymbol} tick={t.tick} />;
+  return <DOMPanel symbol={t.selectedSymbol} tick={t.tick} tickSize={t.symbolInfo?.tickSize} />;
 }
 
 /** Instrument list with live prices. */

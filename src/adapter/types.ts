@@ -43,6 +43,27 @@ export interface Quote {
   timestamp: number;
 }
 
+/** One price level of an order book, aggregated over its orders. */
+export interface DepthLevel {
+  price: number;
+  size: number;
+  /** Number of orders at the level, when the venue reports it. */
+  orders?: number;
+}
+
+/**
+ * The order book of one symbol, aggregated by price. Bids are best (highest)
+ * first, asks best (lowest) first. `subscribeDepth` always delivers the whole
+ * book, never a diff.
+ */
+export interface DepthBook {
+  symbol: string;
+  bids: DepthLevel[];
+  asks: DepthLevel[];
+  /** Epoch ms of the last update. */
+  timestamp: number;
+}
+
 /** Pushed by `marketData.subscribe`. */
 export type MarketEvent =
   | { type: "tick"; symbol: string; bid: number; ask: number; timestamp?: number }
@@ -87,6 +108,13 @@ export interface MarketDataSource {
 
   /** Which symbols are on screen, so a feed can narrow its subscriptions. */
   setSymbolInterest?(symbols: string[]): void;
+
+  /**
+   * Live order book for the depth-of-market panel. The handler receives the
+   * full book (best levels first) on every change. Without it the panel falls
+   * back to simulated depth, which is only suitable for demo data.
+   */
+  subscribeDepth?(symbol: string, handler: (book: DepthBook) => void): Unsubscribe;
 }
 
 /** Pushed by `trading.subscribe`. `entity` carries the full record when available. */

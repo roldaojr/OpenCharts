@@ -2885,6 +2885,321 @@ export const rti = $root.rti = (() => {
         return BestBidOffer;
     })();
 
+    rti.OrderBook = (function() {
+
+        function OrderBook(properties) {
+            this.bidPrice = [];
+            this.bidSize = [];
+            this.bidOrders = [];
+            this.implBidSize = [];
+            this.askPrice = [];
+            this.askSize = [];
+            this.askOrders = [];
+            this.implAskSize = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        OrderBook.prototype.templateId = 0;
+        OrderBook.prototype.symbol = "";
+        OrderBook.prototype.exchange = "";
+        OrderBook.prototype.presenceBits = 0;
+        OrderBook.prototype.updateType = 1;
+        OrderBook.prototype.bidPrice = $util.emptyArray;
+        OrderBook.prototype.bidSize = $util.emptyArray;
+        OrderBook.prototype.bidOrders = $util.emptyArray;
+        OrderBook.prototype.implBidSize = $util.emptyArray;
+        OrderBook.prototype.askPrice = $util.emptyArray;
+        OrderBook.prototype.askSize = $util.emptyArray;
+        OrderBook.prototype.askOrders = $util.emptyArray;
+        OrderBook.prototype.implAskSize = $util.emptyArray;
+        OrderBook.prototype.ssboe = 0;
+        OrderBook.prototype.usecs = 0;
+
+        OrderBook.create = function create(properties) {
+            return new OrderBook(properties);
+        };
+
+        OrderBook.encode = function encode(message, writer, q) {
+            if (!writer)
+                writer = $Writer.create();
+            if (q === undefined)
+                q = 0;
+            if (q > $util.recursionLimit)
+                throw Error("max depth exceeded");
+            if (message.symbol != null && Object.hasOwnProperty.call(message, "symbol"))
+                writer.uint32(880802).string(message.symbol);
+            if (message.exchange != null && Object.hasOwnProperty.call(message, "exchange"))
+                writer.uint32(880810).string(message.exchange);
+            if (message.presenceBits != null && Object.hasOwnProperty.call(message, "presenceBits"))
+                writer.uint32(1193104).uint32(message.presenceBits);
+            if (message.ssboe != null && Object.hasOwnProperty.call(message, "ssboe"))
+                writer.uint32(1200800).int32(message.ssboe);
+            if (message.usecs != null && Object.hasOwnProperty.call(message, "usecs"))
+                writer.uint32(1200808).int32(message.usecs);
+            if (message.bidPrice != null && message.bidPrice.length)
+                for (let i = 0; i < message.bidPrice.length; ++i)
+                    writer.uint32(1234257).double(message.bidPrice[i]);
+            if (message.bidSize != null && message.bidSize.length)
+                for (let i = 0; i < message.bidSize.length; ++i)
+                    writer.uint32(1234264).int32(message.bidSize[i]);
+            if (message.askPrice != null && message.askPrice.length)
+                for (let i = 0; i < message.askPrice.length; ++i)
+                    writer.uint32(1234273).double(message.askPrice[i]);
+            if (message.askSize != null && message.askSize.length)
+                for (let i = 0; i < message.askSize.length; ++i)
+                    writer.uint32(1234280).int32(message.askSize[i]);
+            if (message.bidOrders != null && message.bidOrders.length)
+                for (let i = 0; i < message.bidOrders.length; ++i)
+                    writer.uint32(1235208).int32(message.bidOrders[i]);
+            if (message.askOrders != null && message.askOrders.length)
+                for (let i = 0; i < message.askOrders.length; ++i)
+                    writer.uint32(1235216).int32(message.askOrders[i]);
+            if (message.implBidSize != null && message.implBidSize.length)
+                for (let i = 0; i < message.implBidSize.length; ++i)
+                    writer.uint32(1235296).int32(message.implBidSize[i]);
+            if (message.implAskSize != null && message.implAskSize.length)
+                for (let i = 0; i < message.implAskSize.length; ++i)
+                    writer.uint32(1235320).int32(message.implAskSize[i]);
+            writer.uint32(1235736).int32(message.templateId);
+            if (message.updateType != null && Object.hasOwnProperty.call(message, "updateType"))
+                writer.uint32(1260864).int32(message.updateType);
+            return writer;
+        };
+
+        OrderBook.decode = function decode(reader, length, error, long) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            if (long === undefined)
+                long = 0;
+            if (long > $Reader.recursionLimit)
+                throw Error("maximum nesting depth exceeded");
+            let end, message;
+            if (length === undefined)
+                end = reader.len;
+            else {
+                end = reader.pos + length;
+                if (end > reader.len)
+                    throw RangeError("index out of range");
+                length = reader.len;
+                reader.len = end;
+            }
+            message = new $root.rti.OrderBook();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 154467: {
+                        message.templateId = reader.int32();
+                        break;
+                    }
+                case 110100: {
+                        message.symbol = reader.string();
+                        break;
+                    }
+                case 110101: {
+                        message.exchange = reader.string();
+                        break;
+                    }
+                case 149138: {
+                        message.presenceBits = reader.uint32();
+                        break;
+                    }
+                case 157608: {
+                        message.updateType = reader.int32();
+                        break;
+                    }
+                case 154282: {
+                        if (!(message.bidPrice && message.bidPrice.length))
+                            message.bidPrice = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.bidPrice.push(reader.double());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.bidPrice.push(reader.double());
+                        break;
+                    }
+                case 154283: {
+                        if (!(message.bidSize && message.bidSize.length))
+                            message.bidSize = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.bidSize.push(reader.int32());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.bidSize.push(reader.int32());
+                        break;
+                    }
+                case 154401: {
+                        if (!(message.bidOrders && message.bidOrders.length))
+                            message.bidOrders = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.bidOrders.push(reader.int32());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.bidOrders.push(reader.int32());
+                        break;
+                    }
+                case 154412: {
+                        if (!(message.implBidSize && message.implBidSize.length))
+                            message.implBidSize = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.implBidSize.push(reader.int32());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.implBidSize.push(reader.int32());
+                        break;
+                    }
+                case 154284: {
+                        if (!(message.askPrice && message.askPrice.length))
+                            message.askPrice = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.askPrice.push(reader.double());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.askPrice.push(reader.double());
+                        break;
+                    }
+                case 154285: {
+                        if (!(message.askSize && message.askSize.length))
+                            message.askSize = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.askSize.push(reader.int32());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.askSize.push(reader.int32());
+                        break;
+                    }
+                case 154402: {
+                        if (!(message.askOrders && message.askOrders.length))
+                            message.askOrders = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.askOrders.push(reader.int32());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.askOrders.push(reader.int32());
+                        break;
+                    }
+                case 154415: {
+                        if (!(message.implAskSize && message.implAskSize.length))
+                            message.implAskSize = [];
+                        if ((tag & 7) === 2) {
+                            let end2 = reader.uint32() + reader.pos;
+                            if (end2 > reader.len)
+                                throw RangeError("index out of range");
+                            reader.len = end2;
+                            while (reader.pos < end2)
+                                message.implAskSize.push(reader.int32());
+                            if (reader.pos !== end2)
+                                throw RangeError("index out of range");
+                            reader.len = end;
+                        } else
+                            message.implAskSize.push(reader.int32());
+                        break;
+                    }
+                case 150100: {
+                        message.ssboe = reader.int32();
+                        break;
+                    }
+                case 150101: {
+                        message.usecs = reader.int32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7, long);
+                    break;
+                }
+            }
+            if (length !== undefined) {
+                if (reader.pos !== end)
+                    throw RangeError("index out of range");
+                reader.len = length;
+            }
+            if (!Object.hasOwnProperty.call(message, "templateId"))
+                throw $util.ProtocolError("missing required 'templateId'", { instance: message });
+            return message;
+        };
+
+        OrderBook.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/rti.OrderBook";
+        };
+
+        OrderBook.PresenceBits = (function() {
+            const valuesById = {}, values = Object.create(valuesById);
+            values[valuesById[1] = "BID"] = 1;
+            values[valuesById[2] = "ASK"] = 2;
+            return values;
+        })();
+
+        OrderBook.UpdateType = (function() {
+            const valuesById = {}, values = Object.create(valuesById);
+            values[valuesById[1] = "CLEAR_ORDER_BOOK"] = 1;
+            values[valuesById[2] = "NO_BOOK"] = 2;
+            values[valuesById[3] = "SNAPSHOT_IMAGE"] = 3;
+            values[valuesById[4] = "BEGIN"] = 4;
+            values[valuesById[5] = "MIDDLE"] = 5;
+            values[valuesById[6] = "END"] = 6;
+            values[valuesById[7] = "SOLO"] = 7;
+            return values;
+        })();
+
+        return OrderBook;
+    })();
+
     rti.RequestTimeBarReplay = (function() {
 
         function RequestTimeBarReplay(properties) {

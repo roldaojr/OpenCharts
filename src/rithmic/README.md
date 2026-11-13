@@ -105,6 +105,7 @@ const adapter = createRithmicAdapter({ session, products: config.products });
 | `getCandles` | `RequestTimeBarReplay` (202) on the history plant. It requests minute bars with period 1/5/15/30/60/240, or daily/weekly bars, with `direction=LAST` and `user_max_count=limit`. A truncated replay continues with `RequestResumeBars` (210). |
 | live `tick` | `RequestMarketDataUpdate` (100) with `LAST_TRADE \| BBO`. Each `BestBidOffer` (151) becomes a tick. |
 | live `candle` | The forming bar is updated from each `LastTrade` (150), separately for every charted timeframe. |
+| `subscribeDepth` (DOM panel) | `RequestMarketDataUpdate` (100) with `ORDER_BOOK` for the symbol on screen. `OrderBook` (156) frames build an aggregated book: a snapshot image replaces it, updates set a level's size (0 removes it), and `BEGIN`/`MIDDLE`/`END` groups publish once at `END`. |
 | `getAccounts` | `RequestLoginInfo` (300) and `RequestAccountList` (302). Balances come from `AccountPnLPositionUpdate` (451). |
 | `getOrders` | `RequestSubscribeForOrderUpdates` (308) and `RequestShowOrders` (320). The cache is kept current by order notifications 351 and 352. |
 | `getPositions` | `RequestPnLPositionUpdates` (400) and `RequestPnLPositionSnapshot` (402). Positions come from `InstrumentPnLPositionUpdate` (450), one net position per account and contract. |

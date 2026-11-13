@@ -3,11 +3,22 @@ import type { CandleData } from "../../lib/indicators.ts";
 import { KNOWN_CURRENCIES } from "./constants.ts";
 import type { Timeframe } from "./constants.ts";
 
-/** Derive pip (decimal) precision from symbolInfo.tickSize or symbol name */
+/**
+ * Derive pip (decimal) precision from symbolInfo.tickSize or symbol name.
+ *
+ * When the symbol states a non-forex category (futures, crypto, indices…) the
+ * tick alone decides: ES with a 0.25 tick prints 2 decimals, not the name
+ * heuristic's 5. Forex keeps one extra digit for the pipette.
+ */
 export function getPipDigits(
-  symbolInfo?: { tickSize?: number | string },
+  symbolInfo?: { tickSize?: number | string; category?: string | null },
   symbolName?: string,
 ): number {
+  const category = symbolInfo?.category?.trim();
+  if (category && !/^(forex|fx)$/i.test(category)) {
+    const fromTick = tickDecimals(Number(symbolInfo?.tickSize));
+    if (fromTick !== null) return fromTick;
+  }
   const symbolDecimals = _symbolNameDecimals(symbolName);
   if (symbolInfo?.tickSize) {
     const s = String(symbolInfo.tickSize);
@@ -28,6 +39,16 @@ function _symbolNameDecimals(symbolName?: string): number {
   if (n.includes("BTC") || n.includes("ETH")) return 2;
   if (n.includes("US30") || n.includes("SPX") || n.includes("NAS") || n.includes("DAX")) return 2;
   return 5;
+}
+
+/** Decimals needed to print a price on the tick grid: 0.25 → 2, 0.0001 → 4, 1 → 0. */
+export function tickDecimals(tickSize: number | undefined): number | null {
+  if (!tickSize || !Number.isFinite(tickSize) || tickSize <= 0) return null;
+  for (let d = 0; d <= 10; d++) {
+    const scaled = tickSize * 10 ** d;
+    if (Math.abs(scaled - Math.round(scaled)) < 1e-9) return d;
+  }
+  return 10;
 }
 
 /** Get the minMove for lightweight-charts priceFormat from pip digits */

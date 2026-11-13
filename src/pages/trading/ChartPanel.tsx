@@ -73,6 +73,7 @@ import {
   formatCountdown,
   getCandleBucketTime,
   getMinMove,
+  tickDecimals,
   toUnixMs,
   toUnixSeconds,
 } from "./utils.ts";
@@ -1464,10 +1465,14 @@ export function ChartPanel({
   }, [timeframe]);
 
   // ── Create / destroy the chart instance ────────────────────
+  const axisTick = symbolInfo?.tickSize;
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const minMove = getMinMove(pipDigits);
+    // Step the price scale by the instrument's tick (ES moves in 0.25) when it
+    // fits the displayed precision; otherwise by one unit of the last digit.
+    const tickDigits = tickDecimals(axisTick);
+    const minMove = axisTick && tickDigits !== null && tickDigits <= pipDigits ? axisTick : getMinMove(pipDigits);
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -1708,6 +1713,7 @@ export function ChartPanel({
     colors.up,
     colors.down,
     selectedSymbol,
+    axisTick,
   ]); // Re-create on theme / precision / symbol change — NOT timeframe (the
   // chart persists across TF switches so drawings never blink out; the
   // TF-change effect below updates the live state in place, TradingView-style).

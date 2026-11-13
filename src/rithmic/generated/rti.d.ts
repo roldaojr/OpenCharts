@@ -2068,6 +2068,162 @@ export namespace rti {
         }
     }
 
+    /** Properties of an OrderBook. */
+    interface IOrderBook {
+
+        /** OrderBook templateId */
+        templateId: number;
+
+        /** OrderBook symbol */
+        symbol?: (string|null);
+
+        /** OrderBook exchange */
+        exchange?: (string|null);
+
+        /** OrderBook presenceBits */
+        presenceBits?: (number|null);
+
+        /** OrderBook updateType */
+        updateType?: (rti.OrderBook.UpdateType|null);
+
+        /** OrderBook bidPrice */
+        bidPrice?: (number[]|null);
+
+        /** OrderBook bidSize */
+        bidSize?: (number[]|null);
+
+        /** OrderBook bidOrders */
+        bidOrders?: (number[]|null);
+
+        /** OrderBook implBidSize */
+        implBidSize?: (number[]|null);
+
+        /** OrderBook askPrice */
+        askPrice?: (number[]|null);
+
+        /** OrderBook askSize */
+        askSize?: (number[]|null);
+
+        /** OrderBook askOrders */
+        askOrders?: (number[]|null);
+
+        /** OrderBook implAskSize */
+        implAskSize?: (number[]|null);
+
+        /** OrderBook ssboe */
+        ssboe?: (number|null);
+
+        /** OrderBook usecs */
+        usecs?: (number|null);
+    }
+
+    /** Represents an OrderBook. */
+    class OrderBook implements IOrderBook {
+
+        /**
+         * Constructs a new OrderBook.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: rti.IOrderBook);
+
+        /** OrderBook templateId. */
+        public templateId: number;
+
+        /** OrderBook symbol. */
+        public symbol: string;
+
+        /** OrderBook exchange. */
+        public exchange: string;
+
+        /** OrderBook presenceBits. */
+        public presenceBits: number;
+
+        /** OrderBook updateType. */
+        public updateType: rti.OrderBook.UpdateType;
+
+        /** OrderBook bidPrice. */
+        public bidPrice: number[];
+
+        /** OrderBook bidSize. */
+        public bidSize: number[];
+
+        /** OrderBook bidOrders. */
+        public bidOrders: number[];
+
+        /** OrderBook implBidSize. */
+        public implBidSize: number[];
+
+        /** OrderBook askPrice. */
+        public askPrice: number[];
+
+        /** OrderBook askSize. */
+        public askSize: number[];
+
+        /** OrderBook askOrders. */
+        public askOrders: number[];
+
+        /** OrderBook implAskSize. */
+        public implAskSize: number[];
+
+        /** OrderBook ssboe. */
+        public ssboe: number;
+
+        /** OrderBook usecs. */
+        public usecs: number;
+
+        /**
+         * Creates a new OrderBook instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns OrderBook instance
+         */
+        public static create(properties?: rti.IOrderBook): rti.OrderBook;
+
+        /**
+         * Encodes the specified OrderBook message. Does not implicitly {@link rti.OrderBook.verify|verify} messages.
+         * @param message OrderBook message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: rti.IOrderBook, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an OrderBook message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns OrderBook
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): rti.OrderBook;
+
+        /**
+         * Gets the default type url for OrderBook
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    namespace OrderBook {
+
+        /** PresenceBits enum. */
+        enum PresenceBits {
+            BID = 1,
+            ASK = 2
+        }
+
+        /** UpdateType enum. */
+        enum UpdateType {
+            CLEAR_ORDER_BOOK = 1,
+            NO_BOOK = 2,
+            SNAPSHOT_IMAGE = 3,
+            BEGIN = 4,
+            MIDDLE = 5,
+            END = 6,
+            SOLO = 7
+        }
+    }
+
     /** Properties of a RequestTimeBarReplay. */
     interface IRequestTimeBarReplay {
 

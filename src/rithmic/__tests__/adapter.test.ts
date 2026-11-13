@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runAdapterConformance } from "../../adapter/conformance.ts";
+import type { DepthBook } from "../../adapter/types.ts";
 import { createUserStorage, type RithmicAdapter } from "../adapter.ts";
 import { getRithmicConfig, parseContracts, parseProducts, quarterlyContract, RITHMIC_TEST_GATEWAY } from "../config.ts";
 import { rti } from "../generated/rti.js";
@@ -177,6 +178,66 @@ describe("market data", () => {
     await new Promise((r) => setTimeout(r, 1_100));
     await flush(20);
     expect(server.requests(T.RequestMarketDataUpdate).filter((r) => r.msg.symbol === "NQZ6")).toHaveLength(2);
+  });
+
+  describe("order book", () => {
+    const U = rti.OrderBook.UpdateType;
+    const book = (body: Record<string, unknown>) =>
+      server.plant(InfraType.TICKER_PLANT).push(rti.OrderBook, { templateId: T.OrderBook, symbol: "ESZ6", exchange: "CME", ...body });
+    const depthRequests = () =>
+      server.requests(T.RequestMarketDataUpdate).filter((r) => r.msg.symbol === "ESZ6" && r.msg.updateBits === 4);
+
+    it("subscribes ORDER_BOOK alone and keeps a sorted, aggregated book", async () => {
+      adapter.marketData.connect?.();
+      const books: DepthBook[] = [];
+      const off = adapter.marketData.subscribeDepth!("ESZ6", (b) => books.push(b));
+      await flush(20);
+      expect(depthRequests()[0]!.msg).toMatchObject({ request: rti.RequestMarketDataUpdate.Request.SUBSCRIBE, updateBits: 4 });
+
+      // A two-frame snapshot, then an update that removes one level and adds another.
+      book({ updateType: U.SNAPSHOT_IMAGE, presenceBits: 3, bidPrice: [5000, 4999.75], bidSize: [10, 7], askPrice: [5000.25], askSize: [12] });
+      book({ updateType: U.SNAPSHOT_IMAGE, presenceBits: 2, askPrice: [5000.5], askSize: [4] });
+      await flush(20);
+      // The snapshot is published on the next macrotask, once all its frames are in.
+      await new Promise((r) => setTimeout(r, 0));
+      expect(books).toHaveLength(1);
+      expect(books.at(-1)).toMatchObject({
+        bids: [{ price: 5000, size: 10 }, { price: 4999.75, size: 7 }],
+        asks: [{ price: 5000.25, size: 12 }, { price: 5000.5, size: 4 }],
+      });
+      book({ updateType: U.SOLO, presenceBits: 1, bidPrice: [5000, 4999.5], bidSize: [0, 3] });
+      await flush(20);
+      expect(books.at(-1)!.bids).toEqual([{ price: 4999.75, size: 7 }, { price: 4999.5, size: 3 }]);
+
+      // BEGIN/MIDDLE are applied silently; END publishes.
+      const before = books.length;
+      book({ updateType: U.BEGIN, presenceBits: 2, askPrice: [5000.25], askSize: [1] });
+      await flush(20);
+      expect(books).toHaveLength(before);
+      book({ updateType: U.END, presenceBits: 2, askPrice: [5000.75], askSize: [2] });
+      await flush(20);
+      expect(books.at(-1)!.asks.map((l) => l.size)).toEqual([1, 4, 2]);
+
+      book({ updateType: U.CLEAR_ORDER_BOOK });
+      await flush(20);
+      expect(books.at(-1)).toMatchObject({ bids: [], asks: [] });
+
+      off();
+      await flush(20);
+      expect(depthRequests().at(-1)!.msg).toMatchObject({ request: rti.RequestMarketDataUpdate.Request.UNSUBSCRIBE, updateBits: 4 });
+    });
+
+    it("re-subscribes the book after the ticker plant reconnects", async () => {
+      adapter.marketData.connect?.();
+      const off = adapter.marketData.subscribeDepth!("ESZ6", () => undefined);
+      await flush(20);
+      expect(depthRequests()).toHaveLength(1);
+      server.plant(InfraType.TICKER_PLANT).drop();
+      await new Promise((r) => setTimeout(r, 1_100));
+      await flush(20);
+      expect(depthRequests().filter((r) => r.msg.request === rti.RequestMarketDataUpdate.Request.SUBSCRIBE)).toHaveLength(2);
+      off();
+    });
   });
 
   it("ignores bars with missing prices", () => {

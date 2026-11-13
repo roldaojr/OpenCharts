@@ -301,7 +301,9 @@ export function TradingPage() {
                 onOrderSuccess={onOrderSuccess}
               />
             )}
-            {rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
+            {rightPanel === "dom" && (
+              <DOMPanel symbol={selectedSymbol} tick={tick} tickSize={symbolInfo?.tickSize} />
+            )}
             {rightPanel === "watchlist" && (
               <WatchlistPanel
                 symbols={symbols}

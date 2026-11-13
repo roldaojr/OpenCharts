@@ -46,6 +46,7 @@ const PROTOS = [
   "response_search_symbols",
   "last_trade",
   "best_bid_offer",
+  "order_book",
   // history plant
   "request_time_bar_replay",
   "response_time_bar_replay",
