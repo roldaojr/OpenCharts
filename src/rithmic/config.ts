@@ -18,6 +18,30 @@
 
 export const RITHMIC_TEST_GATEWAY = "wss://rituz00100.rithmic.com:443";
 
+export interface RithmicGateway {
+  /** Location shown on the sign-in screen, e.g. "Chicago". */
+  name: string;
+  /** wss URL of the R|Protocol gateway. */
+  url: string;
+}
+
+/** The R|Protocol gateways Rithmic publishes, offered on the sign-in screen. */
+export const RITHMIC_GATEWAYS: readonly RithmicGateway[] = [
+  { name: "Chicago", url: "wss://rprotocol-mobile.rithmic.com:443" },
+  { name: "Cape Town", url: "wss://rprotocol-za.rithmic.com:443" },
+  { name: "Frankfurt", url: "wss://rprotocol-de.rithmic.com:443" },
+  { name: "Hong Kong", url: "wss://rprotocol-hk.rithmic.com:443" },
+  { name: "Ireland", url: "wss://rprotocol-ie.rithmic.com:443" },
+  { name: "Mumbai", url: "wss://rprotocol-in.rithmic.com:443" },
+  { name: "New York", url: "wss://rprotocol-nyc.rithmic.com:443" },
+  { name: "Sao Paulo", url: "wss://rprotocol-br.rithmic.com:443" },
+  { name: "Seoul", url: "wss://rprotocol-kr.rithmic.com:443" },
+  { name: "Singapore", url: "wss://rprotocol-sg.rithmic.com:443" },
+  { name: "Sydney", url: "wss://rprotocol-au.rithmic.com:443" },
+  { name: "Tokyo", url: "wss://rprotocol-jp.rithmic.com:443" },
+  { name: "Test", url: RITHMIC_TEST_GATEWAY },
+];
+
 export interface RithmicProduct {
   /** Product code, e.g. "ES". */
   product: string;

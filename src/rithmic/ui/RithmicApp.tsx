@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { safeStorage } from "../../lib/safe-storage.ts";
 import { Terminal } from "../../terminal/Terminal.tsx";
 import { OpenChartsProvider } from "../../adapter/provider.tsx";
 import { createRithmicAdapter, type RithmicAdapter } from "../adapter.ts";
-import { getRithmicConfig } from "../config.ts";
+import { getRithmicConfig, RITHMIC_GATEWAYS, type RithmicGateway } from "../config.ts";
 import { listRithmicSystems } from "../connection.ts";
 import { RithmicSession } from "../session.ts";
 
@@ -52,21 +52,41 @@ function SignIn({ onSignedIn, notice }: { onSignedIn: (a: RithmicAdapter) => voi
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(notice);
 
+  // A gateway outside the published list (remembered, or VITE_RITHMIC_GATEWAY) stays selectable.
+  const [gatewayOptions] = useState<readonly RithmicGateway[]>(() =>
+    RITHMIC_GATEWAYS.some((g) => g.url === startGateway)
+      ? RITHMIC_GATEWAYS
+      : [{ name: `Custom (${startGateway})`, url: startGateway }, ...RITHMIC_GATEWAYS],
+  );
+  // Only the latest system-list request may update the form.
+  const loadSeq = useRef(0);
+
   const loadSystems = useCallback(async (url: string) => {
+    const seq = ++loadSeq.current;
     setLoadingSystems(true);
     setError(null);
     try {
       const list = await listRithmicSystems(url);
+      if (seq !== loadSeq.current) return;
       setSystems(list);
       setSystemName((cur) => (cur && list.includes(cur) ? cur : (list[0] ?? "")));
     } catch (err) {
+      if (seq !== loadSeq.current) return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoadingSystems(false);
+      if (seq === loadSeq.current) setLoadingSystems(false);
     }
   }, []);
 
-  // Fill the system list once on mount; a changed gateway is reloaded with the button.
+  const pickGateway = (url: string) => {
+    setGateway(url);
+    // Systems belong to a gateway: drop the old list so a failed load leaves none.
+    setSystems([]);
+    setSystemName("");
+    void loadSystems(url);
+  };
+
+  // Fill the system list once on mount; picking another gateway reloads it.
   useEffect(() => {
     const t = setTimeout(() => void loadSystems(startGateway), 0);
     return () => clearTimeout(t);
@@ -111,12 +131,14 @@ function SignIn({ onSignedIn, notice }: { onSignedIn: (a: RithmicAdapter) => voi
 
         <label className="block space-y-1">
           <span className="text-xs text-muted-foreground">Gateway</span>
-          <div className="flex gap-2">
-            <input className={inputCls} value={gateway} onChange={(e) => setGateway(e.target.value)} spellCheck={false} />
-            <Button type="button" size="sm" variant="outline" className="h-9" loading={loadingSystems} onClick={() => void loadSystems(gateway)}>
-              Load
-            </Button>
-          </div>
+          <select className={inputCls} value={gateway} onChange={(e) => pickGateway(e.target.value)} disabled={signingIn}>
+            {gatewayOptions.map((g) => (
+              <option key={g.url} value={g.url}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <span className="block truncate text-[10px] text-muted-foreground">{gateway}</span>
         </label>
 
         <label className="block space-y-1">
