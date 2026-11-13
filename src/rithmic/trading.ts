@@ -665,13 +665,16 @@ export function createRithmicTrading(deps: RithmicTradingDeps): RithmicTradingGa
       await ensureReady();
       const { parsed, pos } = positionRecord(id);
       const who = ids(parsed.accountId);
-      if (quantity !== undefined && quantity > 0 && quantity < pos.quantity) {
+      if (quantity !== undefined && !(Number.isInteger(quantity) && quantity >= 1)) {
+        throw new TradeError("Futures quantity must be a whole number of contracts (1 or more).");
+      }
+      if (quantity !== undefined && quantity < pos.quantity) {
         await submitOrder({
           accountId: parsed.accountId,
           symbol: parsed.symbol,
           side: pos.side === "LONG" ? "SELL" : "BUY",
           type: "MARKET",
-          quantity: Math.floor(quantity),
+          quantity,
         });
         return;
       }

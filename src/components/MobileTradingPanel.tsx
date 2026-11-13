@@ -47,7 +47,6 @@ interface MobileTradingPanelProps {
 
 type Tab = "order" | "positions" | "alerts";
 
-const LOT_PRESETS = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0];
 const TABS: Tab[] = ["order", "positions", "alerts"];
 
 export function MobileTradingPanel({
@@ -63,11 +62,17 @@ export function MobileTradingPanel({
   closingPositionId = null,
   closingAll = false,
 }: MobileTradingPanelProps) {
-  const { formatQty } = useInstrumentLabels();
+  const { formatQty, qty: rules, unitLabelCap } = useInstrumentLabels();
   const spread = spreadProp ?? ask - bid;
   const [activeTab, setActiveTab] = useState<Tab>("order");
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
-  const [quantity, setQuantity] = useState(0.1);
+  const [quantity, setQuantity] = useState(rules.defaultQty);
+  // Re-snap when the active account switches between whole and fractional quantities.
+  const [rulesFor, setRulesFor] = useState(rules);
+  if (rulesFor !== rules) {
+    setRulesFor(rules);
+    setQuantity((q) => rules.normalize(q));
+  }
   const [limitPrice, setLimitPrice] = useState<string>("");
   const [stopLoss, setStopLoss] = useState<string>("");
   const [takeProfit, setTakeProfit] = useState<string>("");
@@ -185,10 +190,10 @@ export function MobileTradingPanel({
           {/* Lot size presets */}
           <div>
             <label className="text-xs text-slate-400 mb-1.5 block">
-              Lot Size: <span className="text-white font-mono">{quantity}</span>
+              {rules.whole ? unitLabelCap : "Lot Size"}: <span className="text-white font-mono">{rules.format(quantity)}</span>
             </label>
             <div className="grid grid-cols-3 min-[400px]:grid-cols-6 gap-1.5">
-              {LOT_PRESETS.map((lot) => (
+              {rules.quick.map((lot) => (
                 <button
                   key={lot}
                   onClick={() => setQuantity(lot)}
@@ -206,10 +211,10 @@ export function MobileTradingPanel({
             {/* Custom input */}
             <input
               type="number"
-              step="0.01"
-              min="0.01"
+              step={rules.step}
+              min={rules.min}
               value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value) || 0.01)}
+              onChange={(e) => setQuantity(rules.normalize(Number(e.target.value) || rules.min))}
               className="w-full mt-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm font-mono text-center focus:ring-2 focus:ring-violet-500"
             />
           </div>

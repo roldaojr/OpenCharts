@@ -12,6 +12,7 @@ import {
 import { useAuthStore } from "../../services/store.tsx";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { readTraderPrefs } from "../../hooks/useTraderPreferences.ts";
+import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
 import { Button } from "../../components/ui/button.tsx";
 import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
 import type { PlaceOrderInput } from "../../services/schemas.ts";
@@ -82,15 +83,19 @@ function GenericOrderPanel({
   const isDemo = useAuthStore((s) => s.isDemo);
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
+  const { qty: rules, unitLabel } = useInstrumentLabels();
   const [quantity, setQuantity] = useState(() => {
-    const prefs = readTraderPrefs();
-    const raw = prefs.defaultQty;
-    if (raw) {
-      const n = parseFloat(raw);
-      if (Number.isFinite(n) && n > 0) return String(Math.round(n * 100) / 100);
-    }
-    return "0.1";
+    const raw = readTraderPrefs().defaultQty;
+    const n = raw ? parseFloat(raw) : NaN;
+    return String(Number.isFinite(n) && n > 0 ? rules.normalize(n) : rules.defaultQty);
   });
+  // The active account (and so whole vs fractional quantities) can change after
+  // mount, e.g. when a futures account finishes loading: re-snap the ticket.
+  const [rulesFor, setRulesFor] = useState(rules);
+  if (rulesFor !== rules) {
+    setRulesFor(rules);
+    setQuantity((v) => String(rules.normalize(parseFloat(v))));
+  }
   const [price, setPrice] = useState("");
   const [stopPrice, setStopPrice] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
@@ -112,8 +117,15 @@ function GenericOrderPanel({
       toast.warning("Invalid Quantity", "Quantity must be a positive number");
       return;
     }
+    if (!rules.isValid(qty)) {
+      toast.warning(
+        "Invalid Quantity",
+        `Quantity must be a whole number of ${unitLabel}`,
+      );
+      return;
+    }
     if (qty > 1000) {
-      toast.warning("Invalid Quantity", "Maximum quantity is 1000 lots");
+      toast.warning("Invalid Quantity", `Maximum quantity is 1000 ${unitLabel}`);
       return;
     }
     if (orderType === "LIMIT" && (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0)) {
@@ -145,7 +157,7 @@ function GenericOrderPanel({
     const doSubmit = () =>
       placeOrder.mutateAsync(input, {
         onSuccess: () => {
-          toast.success("Order Sent", `${side} ${qty} ${symbol} (${effectiveType})`);
+          toast.success("Order Sent", `${side} ${rules.format(qty)} ${symbol} (${effectiveType})`);
           onOrderSuccess?.();
         },
         onError: (err: unknown) => {
@@ -197,7 +209,12 @@ function GenericOrderPanel({
     doSubmit().catch(() => {});
   };
 
-  const quickQty = [0.01, 0.05, 0.1, 0.5, 1.0];
+  const quickQty = rules.quick;
+  const stepQty = (dir: 1 | -1) =>
+    setQuantity((v) => {
+      const n = parseFloat(v);
+      return rules.format(rules.normalize((Number.isFinite(n) ? n : rules.defaultQty) + dir * rules.step));
+    });
 
   return (
     <div className="flex flex-col h-full" data-testid="order-form">
@@ -284,13 +301,11 @@ function GenericOrderPanel({
         {/* Quantity */}
         <div>
           <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-            Volume (lots)
+            Volume ({unitLabel})
           </label>
           <div className="flex items-center gap-1 mt-1">
             <button
-              onClick={() =>
-                setQuantity((v) => String(Math.max(0.01, parseFloat(v) - 0.01).toFixed(2)))
-              }
+              onClick={() => stepQty(-1)}
               className="px-2 py-1 rounded bg-secondary hover:bg-border"
             >
               <Minus className="h-3 w-3" />
@@ -300,11 +315,11 @@ function GenericOrderPanel({
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               className="flex-1 text-center text-sm font-mono"
-              step="0.01"
-              min="0.01"
+              step={rules.step}
+              min={rules.min}
             />
             <button
-              onClick={() => setQuantity((v) => String((parseFloat(v) + 0.01).toFixed(2)))}
+              onClick={() => stepQty(1)}
               className="px-2 py-1 rounded bg-secondary hover:bg-border"
             >
               <Plus className="h-3 w-3" />

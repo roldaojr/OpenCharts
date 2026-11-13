@@ -30,7 +30,7 @@ interface OrderModifyDialogProps {
  * shorter, and no window where the fields show the previous order's values.
  */
 export function OrderModifyDialog({ order, onClose, onSaved, tick }: OrderModifyDialogProps) {
-  const { unitLabelCap, isFutures } = useInstrumentLabels();
+  const { unitLabelCap, unitLabel, isFutures, qty: rules } = useInstrumentLabels();
   const [price, setPrice] = useState(() =>
     order?.price != null
       ? String(order.price)
@@ -58,6 +58,15 @@ export function OrderModifyDialog({ order, onClose, onSaved, tick }: OrderModify
       const newQty = parseFloat(quantity);
       const newTp = tp ? parseFloat(tp) : null;
       const newSl = sl ? parseFloat(sl) : null;
+
+      if (quantity !== "" && !rules.isValid(newQty)) {
+        toast.warning(
+          "Invalid Quantity",
+          rules.whole ? `Enter a whole number of ${unitLabel}` : "Enter a positive quantity",
+        );
+        setSaving(false);
+        return;
+      }
 
       if (!isNaN(newPrice) && newPrice > 0) modifications.price = newPrice;
       if (!isNaN(newQty) && newQty > 0 && newQty !== order.quantity)

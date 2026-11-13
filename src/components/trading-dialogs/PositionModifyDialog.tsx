@@ -45,7 +45,7 @@ export function PositionModifyDialog({
   tick,
   isFeedConnected = true,
 }: PositionModifyDialogProps) {
-  const { formatQty, unitLabel, isFutures, instrumentType } = useInstrumentLabels();
+  const { formatQty, unitLabel, isFutures, instrumentType, qty: rules } = useInstrumentLabels();
   // Mounted with `key={position.id}` by the parent, so switching positions
   // gives a fresh instance and these initialisers run against the new one.
   // (Previously an effect copied the position into state after mount, which is
@@ -120,8 +120,13 @@ export function PositionModifyDialog({
       return;
     }
     const qty = parseFloat(partialQty);
-    if (isNaN(qty) || qty <= 0 || qty > position.quantity) {
-      toast.warning("Invalid Quantity", `Enter a value between 0.01 and ${position.quantity}`);
+    if (!rules.isValid(qty) || qty > position.quantity) {
+      toast.warning(
+        "Invalid Quantity",
+        rules.whole
+          ? `Enter a whole number of ${unitLabel} between ${rules.min} and ${rules.format(position.quantity)}`
+          : `Enter a value between ${rules.min} and ${position.quantity}`,
+      );
       return;
     }
     setSaving(true);

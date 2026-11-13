@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { BookOpen, Clock, Globe, History, Newspaper, TrendingUp } from "lucide-react";
 import { useAuthStore } from "../../services/store.tsx";
 import { useTradingStore } from "../../services/store.tsx";
+import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
 import {
   useCancelOrder,
   useClosePosition,
@@ -84,6 +85,7 @@ export function BottomPanel({
   const isDemo = useAuthStore((s) => s.isDemo);
   const cancelOrder = useCancelOrder();
   const closePosition = useClosePosition();
+  const { formatQty } = useInstrumentLabels();
   const closeAllPositions = useCloseAllPositions();
   const accounts = useTradingStore((s) => s.accounts as AccountOption[]);
   const activeAccount = accounts.find((account) => account.id === accountId);
@@ -139,7 +141,7 @@ export function BottomPanel({
     closePosition.mutate(
       { positionId, accountId, quantity },
       {
-        onSuccess: () => toast.success("Partial Close", `Closed ${quantity} of the position`),
+        onSuccess: () => toast.success("Partial Close", `Closed ${formatQty(quantity)} of the position`),
         onError: (err: unknown) => toast.error("Partial Close Failed", getErrorMessage(err)),
       },
     );

@@ -37,6 +37,7 @@ import {
 } from "../services/queries.ts";
 import type { Order, PlaceOrderInput, Position, Symbol } from "../services/schemas.ts";
 import { useTradingStore } from "../services/store.tsx";
+import { useInstrumentLabels } from "../hooks/useInstrumentLabels.ts";
 import { toast } from "../services/toast.ts";
 import {
   type DrawingTool,
@@ -111,6 +112,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     replayVersion,
     isReplaying,
   } = useTradingStore();
+  const { formatQty } = useInstrumentLabels();
 
   // ── Timeframe, held per symbol so switching reads the stored one in render
   const [timeframeBySymbol, setTimeframeBySymbol] = useState<Partial<Record<string, Timeframe>>>(
@@ -377,13 +379,13 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
           onSuccess: () =>
             toast.success(
               quantity != null ? "Partial Close" : "Position Closed",
-              quantity != null ? `Closed ${quantity} lot(s)` : "Position has been closed",
+              quantity != null ? `Closed ${formatQty(quantity)}` : "Position has been closed",
             ),
           onError: (err: unknown) => toast.error("Close Failed", getErrorMessage(err)),
         },
       );
     },
-    [closePositionMutation, requireTradingReady],
+    [closePositionMutation, requireTradingReady, formatQty],
   );
 
   const closeAllPositions = useCallback(() => {

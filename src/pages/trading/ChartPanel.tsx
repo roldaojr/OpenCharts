@@ -68,6 +68,7 @@ import { useChallengeLevels } from "./useChallengeLevels.ts";
 import { useIndicators } from "./useIndicators.ts";
 import { useNewsOverlay } from "./useNewsOverlay.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
+import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
 import {
   formatCountdown,
   getCandleBucketTime,
@@ -696,6 +697,8 @@ interface OverlayOpts {
   symbol: string;
   colors: ChartColors;
   contractSize: number;
+  /** Quantity without unit: "2" for futures, "0.10" for lots. */
+  formatQty: (n: number) => string;
 }
 
 function clearPriceLines(series: ISeriesApi<"Candlestick">, list: IPriceLine[]): void {
@@ -755,7 +758,7 @@ function addPositionOverlay(
       lineWidth: 1,
       lineStyle: LineStyle.Dotted,
       axisLabelVisible: true,
-      title: `${pos.side === "LONG" ? "buy" : "sell"} ${pos.quantity.toFixed(2)}`,
+      title: `${pos.side === "LONG" ? "buy" : "sell"} ${opts.formatQty(pos.quantity)}`,
     }),
   );
   const direction = pos.side === "LONG" ? 1 : -1;
@@ -1115,6 +1118,7 @@ export function ChartPanel({
   isReplaying = false,
 }: ChartPanelProps) {
   const queryClient = useQueryClient();
+  const { qty: qtyRules } = useInstrumentLabels();
   const lastGapRefetchAtRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -1962,6 +1966,7 @@ export function ChartPanel({
       symbol: selectedSymbol,
       colors,
       contractSize: symbolInfo?.contractSize || 100000,
+      formatQty: qtyRules.format,
     };
     for (const pos of positions) {
       addPositionOverlay(series, pos, opts, priceLineRef.current, slTpLinesRef.current);
@@ -1977,6 +1982,7 @@ export function ChartPanel({
     symbolInfo,
     colors,
     chartPrefs.overlayPositionsOnChart,
+    qtyRules,
   ]);
 
   return (

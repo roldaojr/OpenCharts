@@ -279,4 +279,13 @@ describe("positions", () => {
     expect(server.requests(T.RequestNewOrder)[0]!.msg).toMatchObject({ transactionType: 1, priceType: PT.MARKET, quantity: 1 });
     expect(server.requests(T.RequestExitPosition)).toHaveLength(0);
   });
+
+  it("rejects a fractional partial close instead of rounding it", async () => {
+    position(3);
+    await flush();
+    await expect(adapter.trading.closePosition("A1|CME|ESZ6", 1.5)).rejects.toThrow(/whole number of contracts/);
+    await expect(adapter.trading.closePosition("A1|CME|ESZ6", 0.5)).rejects.toThrow(/whole number of contracts/);
+    expect(server.requests(T.RequestNewOrder)).toHaveLength(0);
+    expect(server.requests(T.RequestExitPosition)).toHaveLength(0);
+  });
 });

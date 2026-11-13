@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, useCallback, useMemo } from "react";
 import { Star } from "lucide-react";
 import { usePlaceOrder } from "../../services/queries.ts";
+import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
 import { formatNumber, cn } from "../../lib/utils.ts";
 import { toast } from "../../services/toast.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
@@ -52,6 +53,7 @@ function GenericWatchlistPanel({
 }: WatchlistPanelProps) {
   const [filter, setFilter] = useState("");
   const placeOrder = usePlaceOrder();
+  const { qty: rules } = useInstrumentLabels();
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
@@ -162,10 +164,10 @@ function GenericWatchlistPanel({
                 symbol: s.name,
                 side,
                 type: "MARKET",
-                quantity: 0.1,
+                quantity: rules.defaultQty,
               },
               {
-                onSuccess: () => toast.success("Quick Trade", `${side} 0.1 ${s.name}`),
+                onSuccess: () => toast.success("Quick Trade", `${side} ${rules.format(rules.defaultQty)} ${s.name}`),
                 onError: (err: unknown) =>
                   toast.error("Trade Failed", (err as { message?: string })?.message || "Failed"),
               },

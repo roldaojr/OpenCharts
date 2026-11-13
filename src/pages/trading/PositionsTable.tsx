@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "../../services/toast.ts";
 import { X, Scissors } from "lucide-react";
 import { formatNumber, formatCurrency, formatDate, cn, pnlClass } from "../../lib/utils.ts";
+import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
 
 interface PositionRow {
   id: string;
@@ -37,6 +38,7 @@ export function PositionsTable({
 }) {
   const [partialCloseId, setPartialCloseId] = useState<string | null>(null);
   const [partialQty, setPartialQty] = useState("");
+  const { qty: rules, unitLabel } = useInstrumentLabels();
 
   // Optional exchange detail: columns appear only when the adapter supplies it.
   const showLiq = positions.some((p) => p.liquidationPx !== undefined);
@@ -57,6 +59,10 @@ export function PositionsTable({
     // value previously looked identical to a successful partial close.
     if (!Number.isFinite(qty) || qty <= 0) {
       toast.warning("Invalid Quantity", "Enter a positive quantity to close");
+      return;
+    }
+    if (!rules.isValid(qty)) {
+      toast.warning("Invalid Quantity", `Enter a whole number of ${unitLabel}`);
       return;
     }
     if (qty >= maxQty) {
@@ -146,9 +152,9 @@ export function PositionsTable({
                     onChange={(e) => setPartialQty(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                     placeholder={`Max ${p.quantity}`}
-                    min={0}
+                    min={rules.whole ? rules.min : 0}
                     max={p.quantity}
-                    step="any"
+                    step={rules.whole ? rules.step : "any"}
                     className="w-16 h-5 text-[10px] rounded border border-border bg-background px-1 font-mono"
                     autoFocus
                     onKeyDown={(e) => {
