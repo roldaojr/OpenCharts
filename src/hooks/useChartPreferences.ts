@@ -9,6 +9,8 @@ import {
 export interface ChartPreferences {
   showBidLine: boolean;
   showAskLine: boolean;
+  /** Show the last traded price instead of bid/ask when the feed reports trades. */
+  showLastLine: boolean;
   overlayPositionsOnChart: boolean;
   /** Snap drawing anchors to nearby candle O/H/L/C values. */
   drawingMagnet: boolean;
@@ -62,6 +64,7 @@ const CHART_PREFS_UPDATED_EVENT = "chart-preferences-updated";
 const DEFAULT_CHART_PREFS: ChartPreferences = {
   showBidLine: true,
   showAskLine: true,
+  showLastLine: true,
   overlayPositionsOnChart: true,
   drawingMagnet: false,
   magnetMode: "none",
@@ -99,6 +102,7 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
 const BOOL_PREF_KEYS = [
   "showBidLine",
   "showAskLine",
+  "showLastLine",
   "overlayPositionsOnChart",
   "drawingMagnet",
   "stayInDrawingMode",
@@ -142,6 +146,7 @@ const STRING_PREF_KEYS = [
 export const TEMPLATE_PREF_KEYS = [
   "showBidLine",
   "showAskLine",
+  "showLastLine",
   "overlayPositionsOnChart",
   "showWicks",
   "showCandleBorders",

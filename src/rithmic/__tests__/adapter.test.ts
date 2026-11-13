@@ -180,6 +180,26 @@ describe("market data", () => {
     expect(server.requests(T.RequestMarketDataUpdate).filter((r) => r.msg.symbol === "NQZ6")).toHaveLength(2);
   });
 
+  it("carries the last trade on ticks", async () => {
+    const ticks: Array<{ type: string; bid?: number; ask?: number; last?: number }> = [];
+    adapter.marketData.subscribe((e) => ticks.push(e));
+    adapter.marketData.connect?.();
+    await adapter.marketData.getCandles({ symbol: "ESZ6", timeframe: "1m", limit: 5 });
+    await flush(20);
+    // The subscription's BBO snapshot arrives before any trade: no `last` yet.
+    expect(ticks.filter((e) => e.type === "tick").at(-1)).not.toHaveProperty("last");
+
+    const plant = server.plant(InfraType.TICKER_PLANT);
+    plant.push(rti.LastTrade, { templateId: T.LastTrade, symbol: "ESZ6", exchange: "CME", presenceBits: 1, tradePrice: 5000.25, tradeSize: 2, ssboe: Math.floor(Date.now() / 1000) });
+    await flush(20);
+    const lastTick = () => ticks.filter((e) => e.type === "tick").at(-1);
+    expect(lastTick()).toMatchObject({ bid: 5000, ask: 5000.25, last: 5000.25 });
+
+    plant.push(rti.BestBidOffer, { templateId: T.BestBidOffer, symbol: "ESZ6", exchange: "CME", presenceBits: 3, bidPrice: 5000.25, askPrice: 5000.5, ssboe: Math.floor(Date.now() / 1000) });
+    await flush(20);
+    expect(lastTick()).toMatchObject({ bid: 5000.25, ask: 5000.5, last: 5000.25 });
+  });
+
   describe("order book", () => {
     const U = rti.OrderBook.UpdateType;
     const book = (body: Record<string, unknown>) =>

@@ -46,9 +46,9 @@ import {
   REPLAY_ENABLED,
   TIMEFRAMES,
   type Timeframe,
+  NEWS_ENABLED,
 } from "./constants.ts";
 import { ChartTemplatesMenu } from "./ChartTemplatesMenu.tsx";
-import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
 import { ReplayHUD } from "./ReplayHUD.tsx";
 import { getPipDigits } from "./utils.ts";
 
@@ -410,8 +410,8 @@ export function ChartToolbar({
           active={showRightPanel && rightPanel === "watchlist"}
           onClick={() => onRightPanel("watchlist")}
         />
-        {/* The news panel is sample data; a live broker must not show it. */}
-        {!isHyperliquidMode() && (
+        {/* The news panel is sample data, switched off by NEWS_ENABLED. */}
+        {NEWS_ENABLED && (
           <ToolButton
             icon={Newspaper}
             tooltip="News"

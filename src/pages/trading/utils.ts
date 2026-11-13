@@ -51,6 +51,11 @@ export function tickDecimals(tickSize: number | undefined): number | null {
   return 10;
 }
 
+/** The price the chart tracks: the last trade when the feed reports one, else the mid. */
+export function tradePrice(tick: { bid: number; ask: number; last?: number }): number {
+  return tick.last !== undefined && Number.isFinite(tick.last) ? tick.last : (tick.bid + tick.ask) / 2;
+}
+
 /** Get the minMove for lightweight-charts priceFormat from pip digits */
 export function getMinMove(pipDigits: number): number {
   return Number((1 / Math.pow(10, pipDigits)).toFixed(pipDigits + 1));

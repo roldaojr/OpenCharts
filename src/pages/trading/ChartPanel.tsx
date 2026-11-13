@@ -52,6 +52,7 @@ import {
   mergeChartColors,
   TF_INTERVAL_MS,
   type Timeframe,
+  NEWS_ENABLED,
 } from "./constants.ts";
 import { ChartContextMenu } from "./ChartContextMenu.tsx";
 import { ChartSettingsDialog } from "./ChartSettingsDialog.tsx";
@@ -75,6 +76,7 @@ import {
   getMinMove,
   tickDecimals,
   toUnixMs,
+  tradePrice,
   toUnixSeconds,
 } from "./utils.ts";
 
@@ -229,7 +231,7 @@ export interface ChartPanelProps {
   stayInDrawingMode?: boolean;
   positions: Position[];
   orders: Order[];
-  tick?: { bid: number; ask: number; timestamp: number };
+  tick?: { bid: number; ask: number; timestamp: number; last?: number };
   liveCandle?: {
     open: number;
     high: number;
@@ -353,7 +355,7 @@ type LiveCandleData = {
   volume: number;
   timestamp: number;
 };
-type TickData = { bid: number; ask: number; timestamp: number };
+type TickData = { bid: number; ask: number; timestamp: number; last?: number };
 
 interface RtCtx {
   series: ISeriesApi<"Candlestick">;
@@ -365,6 +367,7 @@ interface RtCtx {
   bidLine: Ref<IPriceLine | null>;
   askLine: Ref<IPriceLine | null>;
   midLine: Ref<IPriceLine | null>;
+  lastLine: Ref<IPriceLine | null>;
   colors: ChartColors;
   timeframe: Timeframe;
   symbol: string;
@@ -475,7 +478,7 @@ function applyTick(tick: TickData, ctx: RtCtx): void {
   if (ctx.liveCandleTs.current && tickMs <= ctx.liveCandleTs.current) return;
   const prev = ctx.lastCandle.current;
   if (!prev) return;
-  const mid = (tick.bid + tick.ask) / 2;
+  const mid = tradePrice(tick);
   const bucketTime = getCandleBucketTime(tickMs, ctx.timeframe) as Time;
   const isContinuation = prev.time === bucketTime;
   const bar = buildTickBar(prev, isContinuation, bucketTime, mid, ctx);
@@ -528,7 +531,7 @@ function upsertPriceLine(
 
 function applyBidAskLines(
   tick: TickData | undefined,
-  prefs: { showBidLine: boolean; showAskLine: boolean },
+  prefs: { showBidLine: boolean; showAskLine: boolean; showLastLine: boolean },
   ctx: RtCtx,
 ): void {
   const series = ctx.series;
@@ -536,8 +539,30 @@ function applyBidAskLines(
     removePriceLineSafe(ctx.bidLine, series);
     removePriceLineSafe(ctx.askLine, series);
     removePriceLineSafe(ctx.midLine, series);
+    removePriceLineSafe(ctx.lastLine, series);
     return;
   }
+  // Feeds that report trades (futures) show the last trade instead of bid/ask,
+  // green at or above the forming bar's open and red below it.
+  if (prefs.showLastLine && tick.last !== undefined && Number.isFinite(tick.last)) {
+    removePriceLineSafe(ctx.bidLine, series);
+    removePriceLineSafe(ctx.askLine, series);
+    removePriceLineSafe(ctx.midLine, series);
+    const open = ctx.lastCandle.current?.open;
+    const color = open !== undefined && tick.last < open ? ctx.colors.down : ctx.colors.up;
+    upsertPriceLine(ctx.lastLine, series, true, {
+      price: tick.last,
+      color,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "Last",
+      axisLabelColor: color,
+      axisLabelTextColor: "#ffffff",
+    });
+    return;
+  }
+  removePriceLineSafe(ctx.lastLine, series);
   upsertPriceLine(ctx.bidLine, series, prefs.showBidLine, {
     price: tick.bid,
     color: ctx.colors.bidLine,
@@ -925,6 +950,14 @@ function OhlcvLegendRow({ legend, pipDigits }: { legend: OhlcvLegend; pipDigits:
 }
 
 function BidAskRow({ tick, pipDigits }: { tick: TickData; pipDigits: number }) {
+  if (tick.last !== undefined && Number.isFinite(tick.last)) {
+    return (
+      <div className="flex items-center gap-2 text-[10px] font-mono">
+        <span className="text-muted-foreground/50">Last</span>
+        <span className="text-foreground/80">{tick.last.toFixed(pipDigits)}</span>
+      </div>
+    );
+  }
   const spread = ((tick.ask - tick.bid) * 10 ** pipDigits).toFixed(1);
   return (
     <div className="flex items-center gap-2 text-[10px] font-mono">
@@ -974,7 +1007,7 @@ function ChartLegendHeader({
           </span>
         )}
       </div>
-      {/* Secondary info row: Bid / Ask / Spread */}
+      {/* Secondary info row: Last, or Bid / Ask / Spread */}
       {tick && <BidAskRow tick={tick} pipDigits={pipDigits} />}
     </div>
   );
@@ -1149,6 +1182,7 @@ export function ChartPanel({
   const bidLineRef = useRef<IPriceLine | null>(null);
   const askLineRef = useRef<IPriceLine | null>(null);
   const midLineRef = useRef<IPriceLine | null>(null);
+  const lastLineRef = useRef<IPriceLine | null>(null);
 
   // ── SL/TP drag-to-edit state ──
   const slTpLinesRef = useRef<SlTpMap>(new Map());
@@ -1687,6 +1721,7 @@ export function ChartPanel({
       bidLineRef.current = null;
       askLineRef.current = null;
       midLineRef.current = null;
+      lastLineRef.current = null;
       chartPluginsRef.current = [];
       // Clear per-chart state so it doesn't bleed into the recreated chart
       // (theme toggle also destroys/recreates the chart instance).
@@ -1817,6 +1852,7 @@ export function ChartPanel({
       bidLine: bidLineRef,
       askLine: askLineRef,
       midLine: midLineRef,
+      lastLine: lastLineRef,
       colors,
       timeframe,
       symbol: selectedSymbol,
@@ -1894,7 +1930,7 @@ export function ChartPanel({
   const alertFiredRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
     if (!tick) return;
-    const mid = (tick.bid + tick.ask) / 2;
+    const mid = tradePrice(tick);
     const prev = alertMidRef.current;
     alertMidRef.current = mid;
     if (prev === null) return;
@@ -1953,10 +1989,14 @@ export function ChartPanel({
     if (!series) return;
     applyBidAskLines(
       tick,
-      { showBidLine: chartPrefs.showBidLine, showAskLine: chartPrefs.showAskLine },
+      {
+        showBidLine: chartPrefs.showBidLine,
+        showAskLine: chartPrefs.showAskLine,
+        showLastLine: chartPrefs.showLastLine,
+      },
       makeRtCtx(series),
     );
-  }, [tick, chartPrefs.showBidLine, chartPrefs.showAskLine, makeRtCtx]);
+  }, [tick, chartPrefs.showBidLine, chartPrefs.showAskLine, chartPrefs.showLastLine, makeRtCtx]);
 
   // ── Position/order overlays ────────────────────────────────
   useEffect(() => {
@@ -2074,9 +2114,8 @@ export function ChartPanel({
         onReorder={handleReorderDrawing}
       />
 
-      {/* News overlay (popup, config dialog, button) */}
-      {/* No economic-calendar data source exists for Hyperliquid markets. */}
-      {!isHyperliquidMode() && (
+      {/* News overlay (popup, config dialog, button), off unless NEWS_ENABLED. */}
+      {NEWS_ENABLED && (
         <NewsOverlay
           newsConfig={newsConfig}
           setNewsConfig={setNewsConfig}

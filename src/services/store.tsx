@@ -259,6 +259,9 @@ export type TickEntry = {
   /** Pre-formatted with symbol-correct decimal places — avoids toFixed() during renders */
   bidFmt: string;
   askFmt: string;
+  /** Last traded price, when the feed reports trades (futures). */
+  last?: number;
+  lastFmt?: string;
 };
 
 // RAF tick buffers — batch all WS ticks arriving in one frame into a single set()
@@ -314,7 +317,7 @@ interface TradingState {
   loadPositions: () => Promise<void>;
   loadOrders: () => Promise<void>;
   loadSymbols: () => Promise<void>;
-  updateTick: (symbolName: string, bid: number, ask: number, timestamp: number) => void;
+  updateTick: (symbolName: string, bid: number, ask: number, timestamp: number, last?: number) => void;
   updateLiveTick: (symbolName: string, bid: number, ask: number, timestamp: number) => void;
   updateCandleFromWs: (symbol: string, timeframe: string, bar: CandleBar) => void;
   setSelectedSymbol: (symbol: string) => void;
@@ -400,10 +403,16 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     }
   },
 
-  updateTick: (symbolName, bid, ask, timestamp) => {
+  updateTick: (symbolName, bid, ask, timestamp, last) => {
     // 1. Check pending buffer (same-frame dedup with timestamp awareness)
     const pending = _pendingTicks.get(symbolName);
-    if (pending && pending.bid === bid && pending.ask === ask && pending.timestamp >= timestamp)
+    if (
+      pending &&
+      pending.bid === bid &&
+      pending.ask === ask &&
+      pending.last === last &&
+      pending.timestamp >= timestamp
+    )
       return;
     // 2. When buffer is empty, also check committed state (cross-RAF dedup — prevents redundant flush)
     if (!pending) {
@@ -412,6 +421,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
         committed &&
         committed.bid === bid &&
         committed.ask === ask &&
+        committed.last === last &&
         committed.timestamp >= timestamp
       )
         return;
@@ -428,6 +438,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
       timestamp,
       bidFmt: bid.toFixed(decimals),
       askFmt: ask.toFixed(decimals),
+      ...(last !== undefined && Number.isFinite(last) ? { last, lastFmt: last.toFixed(decimals) } : {}),
     });
     if (_tickRafId === null) {
       _tickRafId = requestAnimationFrame(() => {

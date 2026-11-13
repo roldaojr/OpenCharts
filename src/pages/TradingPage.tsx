@@ -11,7 +11,7 @@ import { useTerminal } from "../terminal/use-terminal.ts";
 import { BottomPanel } from "./trading/BottomPanel.tsx";
 import { ChartPanel } from "./trading/ChartPanel.tsx";
 import { ChartToolbar } from "./trading/ChartToolbar.tsx";
-import { REPLAY_ENABLED } from "./trading/constants.ts";
+import { NEWS_ENABLED, REPLAY_ENABLED } from "./trading/constants.ts";
 import { DOMPanel } from "./trading/DOMPanel.tsx";
 import { MarketClosedBanner } from "./trading/MarketClosedBanner.tsx";
 import { OrderPanel } from "./trading/OrderPanel.tsx";
@@ -315,7 +315,7 @@ export function TradingPage() {
                 isFeedConnected={isFeedConnected}
               />
             )}
-            {rightPanel === "news" && (
+            {NEWS_ENABLED && rightPanel === "news" && (
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 <MarketNewsFeed symbol={selectedSymbol} />
               </div>

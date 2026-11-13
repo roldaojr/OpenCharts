@@ -13,7 +13,7 @@ import { useState, type ReactNode } from "react";
 import { type ChartPreferences, updateChartPreferences } from "../../hooks/useChartPreferences.ts";
 import { useDragOffset } from "../../hooks/useDragOffset.ts";
 import { cn } from "../../lib/utils.ts";
-import { CHART_COLORS, type ChartColors } from "./constants.ts";
+import { CHART_COLORS, NEWS_ENABLED, type ChartColors } from "./constants.ts";
 
 // ── Chart Settings dialog ─────────────────────────────────────────────────────
 // Opened from the chart context menu. Every control writes straight through
@@ -69,7 +69,7 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     colorTpLine: "",
     colorSlLine: "",
   },
-  trading: { showBidLine: true, showAskLine: true, overlayPositionsOnChart: true },
+  trading: { showLastLine: true, showBidLine: true, showAskLine: true, overlayPositionsOnChart: true },
   challenge: {
     challengeOverlay: true,
     challengeDailyLossLine: true,
@@ -364,6 +364,12 @@ function TradingTab({ prefs }: { prefs: ChartPreferences }) {
     <div>
       <SectionTitle>Price lines</SectionTitle>
       <ToggleRow
+        label="Last price line"
+        hint="Replaces bid/ask when the feed reports trades"
+        checked={prefs.showLastLine}
+        onChange={(v) => set({ showLastLine: v })}
+      />
+      <ToggleRow
         label="Bid line"
         checked={prefs.showBidLine}
         onChange={(v) => set({ showBidLine: v })}
@@ -412,20 +418,24 @@ function EventsTab({
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("session")}
       />
-      <SectionTitle>News</SectionTitle>
-      <button
-        onClick={() => {
-          onClose();
-          onOpenNewsConfig();
-        }}
-        className="mt-1 rounded border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary"
-      >
-        Configure news overlay…
-      </button>
-      <p className="mt-2 text-[10px] text-muted-foreground">
-        Impact filter, event markers and no-trade window shading are configured in the news overlay
-        dialog.
-      </p>
+      {NEWS_ENABLED && (
+        <>
+          <SectionTitle>News</SectionTitle>
+          <button
+            onClick={() => {
+              onClose();
+              onOpenNewsConfig();
+            }}
+            className="mt-1 rounded border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary"
+          >
+            Configure news overlay…
+          </button>
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Impact filter, event markers and no-trade window shading are configured in the news
+            overlay dialog.
+          </p>
+        </>
+      )}
     </div>
   );
 }

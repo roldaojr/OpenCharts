@@ -107,6 +107,7 @@ class AdapterWsClient {
             symbol: event.symbol,
             bid: event.bid,
             ask: event.ask,
+            ...(event.last !== undefined ? { last: event.last } : {}),
             occurredAt: event.timestamp ?? Date.now(),
           });
           return;

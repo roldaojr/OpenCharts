@@ -23,12 +23,11 @@ import {
 } from "../../components/TradingViewWidgets.tsx";
 import { toast } from "../../services/toast.ts";
 import { formatCurrency, formatNumber, formatDate, cn, pnlClass } from "../../lib/utils.ts";
-import { MOCK_EVENTS, MOCK_NEWS } from "./constants.ts";
+import { MOCK_EVENTS, MOCK_NEWS, NEWS_ENABLED } from "./constants.ts";
 import { PositionsTable } from "./PositionsTable.tsx";
 import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
-import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
 
 type TradingActionError = {
   error?: { message?: string };
@@ -207,8 +206,8 @@ export function BottomPanel({
     { key: "calendar", label: "Calendar", icon: Globe },
     { key: "news", label: "News", icon: Newspaper },
   ];
-  // The calendar and news tabs are sample data; a live broker must not show it.
-  const visibleTabs = isHyperliquidMode()
+  // The calendar and news tabs are sample data, switched off by NEWS_ENABLED.
+  const visibleTabs = !NEWS_ENABLED
     ? tabs.filter((t) => t.key !== "calendar" && t.key !== "news")
     : tabs;
 

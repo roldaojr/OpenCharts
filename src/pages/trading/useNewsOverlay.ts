@@ -9,10 +9,9 @@ import {
 } from "react";
 import type { IChartApi, CandlestickData, Time } from "lightweight-charts";
 import { useEconomicCalendar, type EconomicCalendarEvent } from "../../services/queries.ts";
-import { type NewsOverlayConfig } from "./constants.ts";
+import { NEWS_ENABLED, type NewsOverlayConfig } from "./constants.ts";
 import { extractCurrencies } from "./utils.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
-import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -77,7 +76,8 @@ export function useNewsOverlay(
   }, []);
 
   // Extract currency pair from symbol
-  const symbolCurrencies = useMemo(() => isHyperliquidMode() ? [] : extractCurrencies(selectedSymbol), [selectedSymbol]);
+  // With news off there is no calendar query, so no event markers on the chart.
+  const symbolCurrencies = useMemo(() => (NEWS_ENABLED ? extractCurrencies(selectedSymbol) : []), [selectedSymbol]);
   const { data: rawCalendarData } = useEconomicCalendar(symbolCurrencies);
 
   // Filter events based on config

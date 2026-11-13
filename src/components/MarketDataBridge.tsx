@@ -23,6 +23,7 @@ type MarketDataEvent =
       symbol: string;
       bid: number;
       ask: number;
+      last?: number;
       occurredAt?: number | string;
     }
   | {
@@ -178,7 +179,7 @@ export function MarketDataBridge() {
     const unsub = wsClient.subscribe("market-data", (event) => {
       const wsEvent = event as MarketDataEvent;
       if (wsEvent.eventType === "MarketTick") {
-        updateTick(wsEvent.symbol, wsEvent.bid, wsEvent.ask, toTimestamp(wsEvent.occurredAt));
+        updateTick(wsEvent.symbol, wsEvent.bid, wsEvent.ask, toTimestamp(wsEvent.occurredAt), wsEvent.last);
       } else if ((wsEvent as { eventType: string }).eventType === "HftLiveTick") {
         const liveTick = wsEvent as unknown as { symbol: string; bid: number; ask: number; occurredAt?: number | string };
         updateLiveTick(liveTick.symbol, liveTick.bid, liveTick.ask, toTimestamp(liveTick.occurredAt));

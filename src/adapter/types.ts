@@ -66,7 +66,18 @@ export interface DepthBook {
 
 /** Pushed by `marketData.subscribe`. */
 export type MarketEvent =
-  | { type: "tick"; symbol: string; bid: number; ask: number; timestamp?: number }
+  | {
+      type: "tick";
+      symbol: string;
+      bid: number;
+      ask: number;
+      timestamp?: number;
+      /**
+       * Last traded price. Feeds that report trades (futures) should send it:
+       * the chart then tracks and labels the last trade instead of bid/ask.
+       */
+      last?: number;
+    }
   | {
       type: "candle";
       symbol: string;

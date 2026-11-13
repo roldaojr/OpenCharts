@@ -4,12 +4,19 @@ export const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"] as 
 export type Timeframe = (typeof TIMEFRAMES)[number];
 
 /**
- * Master switch for session replay (HUD + scrubber). Backed by the demo replay
- * provider in services/demo/replay.ts: the buffer is the bundled 1m history for
- * the charted symbol and the transport state is broadcast on the same channel
- * the real backend used.
+ * Master switch for session replay (HUD + scrubber). Disabled: set to true to
+ * bring back the HUD and scrubber. Backed by the replay provider in
+ * services/replay.ts, which replays the adapter's 1m history for the charted
+ * symbol.
  */
-export const REPLAY_ENABLED = true;
+export const REPLAY_ENABLED = false;
+
+/**
+ * Master switch for news: the news panel and bottom tabs (sample headlines and
+ * calendar), and the economic-calendar overlay on the chart. Disabled: set to
+ * true to bring them back.
+ */
+export const NEWS_ENABLED = false;
 
 export const CHART_COLORS = {
   dark: {

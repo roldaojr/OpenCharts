@@ -133,6 +133,8 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
 
   const handlers = new Set<(e: MarketEvent) => void>();
   const quotes = new Map<string, Quote>();
+  /** Last traded price per subscribed symbol. */
+  const lastTrades = new Map<string, number>();
   const quoteWaiters = new Map<string, Set<(q: Quote) => void>>();
   /** symbol|timeframe → chart, most recent last. */
   const chartKeys = new Map<string, { symbol: string; timeframe: string }>();
@@ -200,7 +202,10 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
       const added = target & ~current;
       if (target) subscribed.set(symbol, target);
       else subscribed.delete(symbol);
-      if (removed & QUOTE_BITS) quotes.delete(symbol);
+      if (removed & QUOTE_BITS) {
+        quotes.delete(symbol);
+        lastTrades.delete(symbol);
+      }
       if (removed & Bits.ORDER_BOOK) books.delete(symbol);
       if (removed) sendSubscription(inst, false, removed).catch(() => undefined);
       if (added) {
@@ -336,7 +341,8 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
       quoteWaiters.delete(symbol);
       for (const w of waiters) w(quote);
     }
-    emit({ type: "tick", symbol, bid, ask, timestamp });
+    const last = lastTrades.get(symbol);
+    emit({ type: "tick", symbol, bid, ask, timestamp, ...(last !== undefined ? { last } : {}) });
   }
 
   function onTrade(m: rti.LastTrade): void {
@@ -346,6 +352,11 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
     if (!((m.presenceBits ?? 0) & Bits.LAST_TRADE)) return;
     const price = m.tradePrice;
     if (!Number.isFinite(price) || price <= 0) return;
+    // Every trade, the snapshot included, moves the chart's last price.
+    lastTrades.set(symbol, price);
+    const quote = quotes.get(symbol);
+    const tradeMs = m.ssboe ? m.ssboe * 1000 + Math.floor((m.usecs ?? 0) / 1000) : now();
+    emit({ type: "tick", symbol, bid: quote?.bid ?? price, ask: quote?.ask ?? price, timestamp: tradeMs, last: price });
     // The subscription snapshot repeats the last trade; it is already in history.
     if (m.isSnapshot) return;
     const size = Math.max(0, m.tradeSize ?? 0);
@@ -583,6 +594,7 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
       for (const off of teardown.splice(0)) off();
       subscribed.clear();
       quotes.clear();
+      lastTrades.clear();
       forming.clear();
       depthSubs.clear();
       books.clear();
