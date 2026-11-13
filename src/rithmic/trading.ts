@@ -274,10 +274,23 @@ export function createRithmicTrading(deps: RithmicTradingDeps): RithmicTradingGa
 
   // ── Bootstrap ─────────────────────────────────────────
 
+  /** Name the bootstrap step in a Rithmic refusal, e.g. "Account list: user has no permission ...". */
+  async function step<R>(label: string, p: Promise<R>): Promise<R> {
+    try {
+      return await p;
+    } catch (err) {
+      if (err instanceof RithmicError) throw new RithmicError(err.code, `${label}: ${err.message}`, err.templateId);
+      throw err;
+    }
+  }
+
   async function loadIdentity(): Promise<void> {
-    const info = await orderPlant.request<rti.IRequestLoginInfo, rti.IResponseLoginInfo>(rti.RequestLoginInfo, {
-      templateId: T.RequestLoginInfo,
-    });
+    const info = await step(
+      "Login info",
+      orderPlant.request<rti.IRequestLoginInfo, rti.IResponseLoginInfo>(rti.RequestLoginInfo, {
+        templateId: T.RequestLoginInfo,
+      }),
+    );
     const li = info.rows[0] ?? info.last;
     const UserType = rti.RequestAccountList.UserType;
     // ResponseLoginInfo and RequestAccountList declare separate enums with the same numbers.
@@ -288,12 +301,15 @@ export function createRithmicTrading(deps: RithmicTradingDeps): RithmicTradingGa
         : li.userType === LoginUserType.USER_TYPE_IB
           ? UserType.USER_TYPE_IB
           : UserType.USER_TYPE_TRADER;
-    const list = await orderPlant.request<rti.IRequestAccountList, rti.IResponseAccountList>(rti.RequestAccountList, {
-      templateId: T.RequestAccountList,
-      fcmId: li.fcmId ?? undefined,
-      ibId: li.ibId ?? undefined,
-      userType,
-    });
+    const list = await step(
+      "Account list",
+      orderPlant.request<rti.IRequestAccountList, rti.IResponseAccountList>(rti.RequestAccountList, {
+        templateId: T.RequestAccountList,
+        fcmId: li.fcmId ?? undefined,
+        ibId: li.ibId ?? undefined,
+        userType,
+      }),
+    );
     accounts.clear();
     for (const row of list.rows) {
       if (!row.accountId) continue;
@@ -307,10 +323,13 @@ export function createRithmicTrading(deps: RithmicTradingDeps): RithmicTradingGa
     }
     if (accounts.size === 0) throw new Error("This Rithmic user has no trading accounts.");
 
-    const tr = await orderPlant.request<rti.IRequestTradeRoutes, rti.IResponseTradeRoutes>(rti.RequestTradeRoutes, {
-      templateId: T.RequestTradeRoutes,
-      subscribeForUpdates: false,
-    });
+    const tr = await step(
+      "Trade routes",
+      orderPlant.request<rti.IRequestTradeRoutes, rti.IResponseTradeRoutes>(rti.RequestTradeRoutes, {
+        templateId: T.RequestTradeRoutes,
+        subscribeForUpdates: false,
+      }),
+    );
     routes = tr.rows
       .filter((r) => r.exchange && r.tradeRoute)
       .map((r) => ({
@@ -323,20 +342,52 @@ export function createRithmicTrading(deps: RithmicTradingDeps): RithmicTradingGa
       }));
   }
 
-  async function syncOrders(): Promise<void> {
-    for (const a of accounts.values()) {
-      const who = { fcmId: a.fcmId, ibId: a.ibId, accountId: a.accountId };
-      await orderPlant.request(rti.RequestSubscribeForOrderUpdates, { templateId: T.RequestSubscribeForOrderUpdates, ...who });
-      await orderPlant.request(rti.RequestShowOrders, { templateId: T.RequestShowOrders, ...who });
+  /**
+   * Send one per-account subscription. A Rithmic refusal (e.g. "user has no
+   * permission to this account" for PnL on some prop-firm systems) only leaves
+   * that stream without data: the account came from the account list, so it
+   * stays. Transport errors (dropped connection, timeout) still throw.
+   */
+  async function subscribeStream(a: RithmicAccountInfo, label: string, send: () => Promise<unknown>): Promise<void> {
+    try {
+      await send();
+    } catch (err) {
+      if (!(err instanceof RithmicError)) throw err;
+      console.warn(`[rithmic] ${a.accountId}: ${label} refused: ${err.message}`);
     }
   }
 
-  async function syncPnl(): Promise<void> {
+  async function syncAccountOrders(a: RithmicAccountInfo): Promise<void> {
+    const who = { fcmId: a.fcmId, ibId: a.ibId, accountId: a.accountId };
+    await subscribeStream(a, "Order updates", () =>
+      orderPlant.request(rti.RequestSubscribeForOrderUpdates, { templateId: T.RequestSubscribeForOrderUpdates, ...who }),
+    );
+    await subscribeStream(a, "Show orders", () => orderPlant.request(rti.RequestShowOrders, { templateId: T.RequestShowOrders, ...who }));
+  }
+
+  async function syncAccountPnl(a: RithmicAccountInfo): Promise<void> {
     const Req = rti.RequestPnLPositionUpdates;
+    const who = { fcmId: a.fcmId, ibId: a.ibId, accountId: a.accountId };
+    await subscribeStream(a, "PnL updates", () =>
+      pnlPlant.request(Req, { templateId: T.RequestPnLPositionUpdates, request: Req.Request.SUBSCRIBE, ...who }),
+    );
+    await subscribeStream(a, "PnL snapshot", () =>
+      pnlPlant.request(rti.RequestPnLPositionSnapshot, { templateId: T.RequestPnLPositionSnapshot, ...who }),
+    );
+  }
+
+  async function syncAccounts(): Promise<void> {
+    await Promise.all([...accounts.values()].flatMap((a) => [syncAccountOrders(a), syncAccountPnl(a)]));
+  }
+
+  /** Re-subscribe every account after a plant reconnects; one failure does not stop the rest. */
+  async function resync(plant: string, sync: (a: RithmicAccountInfo) => Promise<void>): Promise<void> {
     for (const a of accounts.values()) {
-      const who = { fcmId: a.fcmId, ibId: a.ibId, accountId: a.accountId };
-      await pnlPlant.request(Req, { templateId: T.RequestPnLPositionUpdates, request: Req.Request.SUBSCRIBE, ...who });
-      await pnlPlant.request(rti.RequestPnLPositionSnapshot, { templateId: T.RequestPnLPositionSnapshot, ...who });
+      try {
+        await sync(a);
+      } catch (err) {
+        console.warn(`[rithmic] ${plant} resync failed for ${a.accountId}:`, describe(err));
+      }
     }
   }
 
@@ -347,16 +398,12 @@ export function createRithmicTrading(deps: RithmicTradingDeps): RithmicTradingGa
         orderPlant.on<rti.ExchangeOrderNotification>(T.ExchangeOrderNotification, onExchangeNotification),
         pnlPlant.on<rti.InstrumentPnLPositionUpdate>(T.InstrumentPnLPositionUpdate, onInstrumentPnl),
         pnlPlant.on<rti.AccountPnLPositionUpdate>(T.AccountPnLPositionUpdate, onAccountPnl),
-        orderPlant.onReconnect(() => {
-          syncOrders().catch((err: unknown) => console.warn("[rithmic] order resync failed:", describe(err)));
-        }),
-        pnlPlant.onReconnect(() => {
-          syncPnl().catch((err: unknown) => console.warn("[rithmic] PnL resync failed:", describe(err)));
-        }),
+        orderPlant.onReconnect(() => void resync("order", syncAccountOrders)),
+        pnlPlant.onReconnect(() => void resync("PnL", syncAccountPnl)),
       );
       const p = (async () => {
         await loadIdentity();
-        await Promise.all([syncOrders(), syncPnl()]);
+        await syncAccounts();
       })();
       ready = p;
       p.catch(() => {
