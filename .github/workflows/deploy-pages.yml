@@ -1,11 +1,19 @@
-name: Deploy demo
+name: Deploy to Pages
 
-# Publishes the terminal to GitHub Pages so the README can link a live demo.
-# Requires Pages to be enabled once, in Settings → Pages → Source: GitHub Actions.
+# Builds the Rithmic terminal and publishes dist/ to GitHub Pages. Each visitor
+# signs in with their own Rithmic credentials; none are baked into the build.
+#
+# One-time setup in the repository settings:
+# - Settings → Pages → Source: GitHub Actions.
+# - Settings → Environments → github-pages → Deployment branches: allow every
+#   branch listed under `push` below (by default only the default branch may deploy).
+# - Optional Actions variables: VITE_RITHMIC_GATEWAY, VITE_RITHMIC_APP_NAME,
+#   VITE_RITHMIC_APP_VERSION, VITE_RITHMIC_PRODUCTS. Unset ones fall back to the
+#   defaults in src/rithmic/config.ts (test gateway, "OpenCharts", ES/MES/NQ/MNQ).
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/rithmic-broker]
   workflow_dispatch:
 
 permissions:
@@ -21,7 +29,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build demo
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,10 +43,26 @@ jobs:
       - run: npm ci
 
       # BASE_PATH makes asset URLs resolve under /<repo>/ on project Pages.
+      # VITE_ADAPTER=rithmic also lets the CSP reach wss://*.rithmic.com.
       - name: Build
         run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_ADAPTER: rithmic
+          VITE_RITHMIC_GATEWAY: ${{ vars.VITE_RITHMIC_GATEWAY }}
+          VITE_RITHMIC_APP_NAME: ${{ vars.VITE_RITHMIC_APP_NAME }}
+          VITE_RITHMIC_APP_VERSION: ${{ vars.VITE_RITHMIC_APP_VERSION }}
+          VITE_RITHMIC_PRODUCTS: ${{ vars.VITE_RITHMIC_PRODUCTS }}
+          VITE_RITHMIC_SYSTEM_NAME: ${{ vars.VITE_RITHMIC_SYSTEM_NAME }}
+
+      # The app reads import.meta.env as a whole, which makes Vite inline every
+      # VITE_* variable. Refuse to publish if login credentials ever got in.
+      - name: Check no credentials in the bundle
+        run: |
+          if grep -rlE "VITE_RITHMIC_(USER|PASSWORD)" dist/; then
+            echo "::error::Rithmic credentials found in dist/; refusing to publish."
+            exit 1
+          fi
 
       - uses: actions/configure-pages@v5
 
