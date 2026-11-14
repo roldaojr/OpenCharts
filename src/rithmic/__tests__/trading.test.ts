@@ -65,7 +65,7 @@ afterEach(() => adapter.dispose());
 
 describe("bootstrap", () => {
   it("loads accounts, routes and subscribes to order and PnL streams", async () => {
-    const accounts = await adapter.trading.getAccounts();
+    const accounts = await adapter.rithmicTrading.getAccounts();
     expect(accounts).toHaveLength(1);
     expect(accounts[0]).toMatchObject({ id: "A1", label: "Sim 1 (A1)", balance: 50000, freeMargin: 50000 });
     expect(server.requests(T.RequestAccountList)[0]!.msg).toMatchObject({ fcmId: "FCM1", ibId: "IB1", userType: 3 });

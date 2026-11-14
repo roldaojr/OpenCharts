@@ -89,8 +89,31 @@ const adapter = createRithmicAdapter({ session, products: config.products });
 | `marketData.ts` | `MarketDataSource`: historical bars, BBO ticks, and bars built from trades. |
 | `orders.ts` | Pure mappers for orders, positions, accounts and bracket ticks. |
 | `trading.ts` | `TradingGateway`: accounts, orders, positions and events. |
+| `simulator.ts` | The local "Simulator" paper-trading account. |
+| `combinedTrading.ts` | One `TradingGateway` over the Rithmic accounts and the simulator. |
 | `adapter.ts` | `createRithmicAdapter`. |
-| `ui/RithmicApp.tsx` | Sign-in screen and session bar. |
+| `ui/RithmicApp.tsx` | Sign-in screen and session bar (with "Reset simulator"). |
+
+### Simulator account
+
+Next to the Rithmic accounts, the account selector offers **Simulator**: paper
+trading on the live Rithmic quotes, executed in the browser. Nothing is sent to
+Rithmic.
+
+- **Starting state:** $50,000, no commission, no margin, whole contracts.
+- **Positions:** one netted position per contract. P&L is the price move ×
+  contracts × point value.
+- **Market fills:** a market order fills at the ask (buy) or the bid (sell).
+- **Limit and stop orders:** a limit fills at its price once the market reaches
+  it. A stop triggers there and fills at the market.
+- **Take profit / stop loss:** TP/SL on a position close it the same way.
+- **Storage:** the state is kept in localStorage under
+  `rithmic:<user>:simulator`, so it survives a reload.
+- **Reset:** "Reset simulator" in the session bar starts it over.
+- **Routing:** order and position ids start with `SIM:`, which is how the
+  combined gateway routes cancels, modifies and closes.
+- **Disabling it:** pass `simulator: false` to `createRithmicAdapter` to leave
+  it out.
 
 `RithmicPlantConnection` handles one plant:
 - It logs in.

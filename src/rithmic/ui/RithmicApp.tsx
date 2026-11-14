@@ -196,7 +196,25 @@ function SessionBar({ adapter, onSignOut }: { adapter: RithmicAdapter; onSignOut
       <span>{adapter.session.systemName}</span>
       <span>{adapter.session.user}</span>
       <span className="capitalize">{state}</span>
-      <button type="button" className="ml-auto rounded px-2 py-0.5 hover:bg-secondary hover:text-foreground" onClick={onSignOut}>
+      {adapter.simulator && (
+        <button
+          type="button"
+          className="ml-auto rounded px-2 py-0.5 hover:bg-secondary hover:text-foreground"
+          title="Back to $50,000 with no positions, orders or history"
+          onClick={() => {
+            if (window.confirm("Reset the Simulator account? Its positions, orders and history are deleted and the balance goes back to $50,000.")) {
+              adapter.simulator?.reset();
+            }
+          }}
+        >
+          Reset simulator
+        </button>
+      )}
+      <button
+        type="button"
+        className={`${adapter.simulator ? "" : "ml-auto "}rounded px-2 py-0.5 hover:bg-secondary hover:text-foreground`}
+        onClick={onSignOut}
+      >
         Sign out
       </button>
     </div>

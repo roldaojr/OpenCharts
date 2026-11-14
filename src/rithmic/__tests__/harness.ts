@@ -167,6 +167,11 @@ export async function startAdapter(products: readonly RithmicProduct[] = CONFIG.
   return createRithmicAdapter({
     session,
     products,
+    simulatorStore: {
+      getItem: (k) => memory.get(k) ?? null,
+      setItem: (k, v) => void memory.set(k, v),
+      removeItem: (k) => void memory.delete(k),
+    },
     storage: {
       get: (k) => memory.get(k) ?? null,
       set: (k, v) => {

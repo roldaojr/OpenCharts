@@ -94,6 +94,8 @@ export interface RithmicMarketDataDeps {
 export interface RithmicMarketData extends MarketDataSource {
   /** Last known top of book, if subscribed. */
   peekQuote(symbol: string): Quote | null;
+  /** Symbols that need quotes even when off screen (the simulator's positions and orders). */
+  setPinnedSymbols(symbols: string[]): void;
   subscribeDepth(symbol: string, handler: (book: DepthBook) => void): Unsubscribe;
 }
 
@@ -145,6 +147,7 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
   const depthSubs = new Map<string, Set<(book: DepthBook) => void>>();
   const books = new Map<string, BookState>();
   const temporary = new Set<string>();
+  let pinned: string[] = [];
   let interest: string[] = [];
   let started = false;
   const teardown: Unsubscribe[] = [];
@@ -176,6 +179,7 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
     const want = new Set<string>();
     for (const { symbol } of chartKeys.values()) want.add(symbol);
     for (const s of temporary) want.add(s);
+    for (const s of pinned) want.add(s);
     for (const s of interest) {
       if (want.size >= MAX_INTEREST_SUBSCRIPTIONS + chartKeys.size) break;
       want.add(s);
@@ -617,6 +621,16 @@ export function createRithmicMarketData(deps: RithmicMarketDataDeps): RithmicMar
     setSymbolInterest(symbols: string[]): void {
       interest = [...new Set(symbols)];
       reconcile();
+    },
+
+    setPinnedSymbols(symbols: string[]): void {
+      const next = [...new Set(symbols)];
+      if (next.length === pinned.length && next.every((s, i) => s === pinned[i])) return;
+      pinned = next;
+      // Pinned symbols may not be loaded yet (restored from storage at sign-in).
+      const missing = next.filter((s) => !registry.get(s));
+      if (missing.length === 0) reconcile();
+      else Promise.all(missing.map((s) => registry.require(s).catch(() => undefined))).then(reconcile, () => undefined);
     },
 
     subscribeDepth(symbol: string, handler: (book: DepthBook) => void): Unsubscribe {

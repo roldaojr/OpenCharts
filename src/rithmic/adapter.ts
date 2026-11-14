@@ -1,8 +1,10 @@
 import { safeStorage } from "../lib/safe-storage.ts";
-import type { OpenChartsAdapter, StorageDriver } from "../adapter/types.ts";
+import type { OpenChartsAdapter, StorageDriver, TradingGateway } from "../adapter/types.ts";
+import { combineTrading } from "./combinedTrading.ts";
 import { createRithmicMarketData, type RithmicMarketData } from "./marketData.ts";
 import type { RithmicSession } from "./session.ts";
 import { RithmicSymbolRegistry } from "./symbols.ts";
+import { createSimulatorTrading, type SimulatorTrading } from "./simulator.ts";
 import { createRithmicTrading, type RithmicTradingGateway } from "./trading.ts";
 import type { RithmicProduct } from "./config.ts";
 
@@ -15,12 +17,24 @@ export interface RithmicAdapterOptions {
   products: readonly RithmicProduct[];
   /** Where chart state goes; defaults to localStorage namespaced by user. */
   storage?: StorageDriver;
+  /**
+   * Add the local "Simulator" paper-trading account next to the Rithmic
+   * accounts (default true). Its state lives in `simulatorStore`.
+   */
+  simulator?: boolean;
+  /** Synchronous store for the simulator; defaults to localStorage. */
+  simulatorStore?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
 }
 
 export interface RithmicAdapter extends OpenChartsAdapter {
   name: typeof RITHMIC_ADAPTER_NAME;
   marketData: RithmicMarketData;
-  trading: RithmicTradingGateway;
+  /** Rithmic accounts plus, when enabled, the simulator account. */
+  trading: TradingGateway;
+  /** The real Rithmic accounts only. */
+  rithmicTrading: RithmicTradingGateway;
+  /** The local paper-trading account, when enabled. */
+  simulator: SimulatorTrading | null;
   registry: RithmicSymbolRegistry;
   session: RithmicSession;
   /** Stop streams and log out of every plant. */
@@ -60,23 +74,36 @@ export function createRithmicAdapter(opts: RithmicAdapterOptions): RithmicAdapte
   const { session } = opts;
   const registry = new RithmicSymbolRegistry(session.ticker, opts.products);
   const marketData = createRithmicMarketData({ ticker: session.ticker, history: session.history, registry });
-  const trading = createRithmicTrading({
+  const rithmicTrading = createRithmicTrading({
     order: session.order,
     pnl: session.pnl,
     registry,
     marketData,
     user: session.user,
   });
+  const simulator =
+    opts.simulator === false
+      ? null
+      : createSimulatorTrading({
+          marketData,
+          registry,
+          store: opts.simulatorStore ?? safeStorage,
+          key: `rithmic:${session.user.toLowerCase()}:simulator`,
+          user: session.user,
+        });
   return {
     name: RITHMIC_ADAPTER_NAME,
     marketData,
-    trading,
+    trading: simulator ? combineTrading(rithmicTrading, simulator) : rithmicTrading,
+    rithmicTrading,
+    simulator,
     storage: opts.storage ?? createUserStorage(session.user),
     registry,
     session,
     dispose() {
       marketData.disconnect?.();
-      trading.dispose();
+      simulator?.dispose();
+      rithmicTrading.dispose();
       session.dispose();
     },
   };

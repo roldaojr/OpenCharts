@@ -51,7 +51,7 @@ describe("refused account subscriptions", () => {
   it("keeps an account whose order updates are refused and names the request", async () => {
     listAccounts(["A1", "B2"]);
     refuseOrderUpdatesFor(["B2"]);
-    const accounts = await adapter.trading.getAccounts();
+    const accounts = await adapter.rithmicTrading.getAccounts();
     expect(accounts.map((a) => a.id)).toEqual(["A1", "B2"]);
     expect(console.warn).toHaveBeenCalledWith("[rithmic] B2: Order updates refused: user has no permission to this account");
   });
@@ -59,13 +59,13 @@ describe("refused account subscriptions", () => {
   it("opens with the only account when its PnL snapshot is refused", async () => {
     listAccounts(["RR1"]);
     refusePnlSnapshot();
-    const accounts = await adapter.trading.getAccounts();
+    const accounts = await adapter.rithmicTrading.getAccounts();
     expect(accounts.map((a) => a.id)).toEqual(["RR1"]);
     expect(console.warn).toHaveBeenCalledWith("[rithmic] RR1: PnL snapshot refused: user has no permission to this account");
   });
 
   it("names the bootstrap step when the account list is refused", async () => {
     server.on(T.RequestAccountList, () => [[rti.ResponseAccountList, { templateId: T.ResponseAccountList, rpCode: NO_PERMISSION }]]);
-    await expect(adapter.trading.getAccounts()).rejects.toThrow("Account list: user has no permission to this account");
+    await expect(adapter.rithmicTrading.getAccounts()).rejects.toThrow("Account list: user has no permission to this account");
   });
 });
