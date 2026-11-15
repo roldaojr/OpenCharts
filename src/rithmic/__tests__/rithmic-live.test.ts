@@ -21,7 +21,8 @@ if (enabled) {
     "rithmic (live)",
     async () => {
       const config = getRithmicConfig({
-        VITE_RITHMIC_GATEWAY: env.RITHMIC_GATEWAY,
+        // The live suite targets the test gateway unless told otherwise.
+        VITE_RITHMIC_GATEWAY: env.RITHMIC_GATEWAY ?? "wss://rituz00100.rithmic.com:443",
         VITE_RITHMIC_PRODUCTS: env.RITHMIC_PRODUCTS ?? "ES:CME,NQ:CME",
         VITE_RITHMIC_APP_NAME: env.RITHMIC_APP_NAME,
         VITE_RITHMIC_APP_VERSION: env.RITHMIC_APP_VERSION,

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runAdapterConformance } from "../../adapter/conformance.ts";
 import type { DepthBook } from "../../adapter/types.ts";
 import { createUserStorage, type RithmicAdapter } from "../adapter.ts";
-import { getRithmicConfig, parseContracts, parseProducts, quarterlyContract, RITHMIC_TEST_GATEWAY } from "../config.ts";
+import { getRithmicConfig, parseContracts, parseProducts, quarterlyContract, RITHMIC_GATEWAYS } from "../config.ts";
 import { rti } from "../generated/rti.js";
 import { TIMEFRAMES, barToCandle } from "../marketData.ts";
 import { InfraType, T } from "../templates.ts";
@@ -25,15 +25,26 @@ runAdapterConformance("rithmic (fake gateway)", () => startAdapter(), {
 describe("config", () => {
   const NOV_12 = new Date("2026-11-12T12:00:00Z");
 
-  it("defaults to the test gateway and ES/MES/NQ/MNQ with manual contracts", () => {
+  it("defaults to the first listed gateway, no system, and ES/MES/NQ/MNQ with manual contracts", () => {
     const c = getRithmicConfig({}, NOV_12);
-    expect(c.gateway).toBe(RITHMIC_TEST_GATEWAY);
+    expect(c.gateway).toBe(RITHMIC_GATEWAYS[0]!.url);
+    expect(RITHMIC_GATEWAYS[0]!.name).toBe("Chicago");
+    expect(c.systemName).toBe("");
     expect(c.products).toEqual([
       { product: "ES", exchange: "CME", contract: "ESZ6", tickSize: 0.25, pointValue: 50, description: "E-Mini S&P 500" },
       { product: "MES", exchange: "CME", contract: "MESZ6", tickSize: 0.25, pointValue: 5, description: "Micro E-Mini S&P 500" },
       { product: "NQ", exchange: "CME", contract: "NQZ6", tickSize: 0.25, pointValue: 20, description: "E-Mini Nasdaq-100" },
       { product: "MNQ", exchange: "CME", contract: "MNQZ6", tickSize: 0.25, pointValue: 2, description: "Micro E-Mini Nasdaq-100" },
     ]);
+  });
+
+  it("takes the preselected gateway and system from the environment", () => {
+    const c = getRithmicConfig({
+      VITE_RITHMIC_GATEWAY: " wss://rprotocol-br.rithmic.com:443 ",
+      VITE_RITHMIC_SYSTEM_NAME: " Rithmic Paper Trading ",
+    });
+    expect(c.gateway).toBe("wss://rprotocol-br.rithmic.com:443");
+    expect(c.systemName).toBe("Rithmic Paper Trading");
   });
 
   it("maps listed products it knows and leaves the rest to the front-month lookup", () => {

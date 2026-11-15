@@ -7,9 +7,10 @@ name: Deploy to Pages
 # - Settings → Pages → Source: GitHub Actions.
 # - Settings → Environments → github-pages → Deployment branches: allow every
 #   branch listed under `push` below (by default only the default branch may deploy).
-# - Optional Actions variables: VITE_RITHMIC_GATEWAY, VITE_RITHMIC_APP_NAME,
+# - Optional Actions variables: VITE_RITHMIC_GATEWAY and VITE_RITHMIC_SYSTEM_NAME
+#   (default here: Chicago and "Rithmic Paper Trading"), VITE_RITHMIC_APP_NAME,
 #   VITE_RITHMIC_APP_VERSION, VITE_RITHMIC_PRODUCTS. Unset ones fall back to the
-#   defaults in src/rithmic/config.ts (test gateway, "OpenCharts", ES/MES/NQ/MNQ).
+#   defaults in src/rithmic/config.ts ("OpenCharts", ES/MES/NQ/MNQ).
 
 on:
   push:
@@ -49,11 +50,11 @@ jobs:
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
           VITE_ADAPTER: rithmic
-          VITE_RITHMIC_GATEWAY: ${{ vars.VITE_RITHMIC_GATEWAY }}
+          VITE_RITHMIC_GATEWAY: ${{ vars.VITE_RITHMIC_GATEWAY || 'wss://rprotocol-mobile.rithmic.com:443' }}
           VITE_RITHMIC_APP_NAME: ${{ vars.VITE_RITHMIC_APP_NAME }}
           VITE_RITHMIC_APP_VERSION: ${{ vars.VITE_RITHMIC_APP_VERSION }}
           VITE_RITHMIC_PRODUCTS: ${{ vars.VITE_RITHMIC_PRODUCTS }}
-          VITE_RITHMIC_SYSTEM_NAME: ${{ vars.VITE_RITHMIC_SYSTEM_NAME }}
+          VITE_RITHMIC_SYSTEM_NAME: ${{ vars.VITE_RITHMIC_SYSTEM_NAME || 'Rithmic Paper Trading' }}
 
       # The app reads import.meta.env as a whole, which makes Vite inline every
       # VITE_* variable. Refuse to publish if login credentials ever got in.

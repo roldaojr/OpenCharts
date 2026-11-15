@@ -43,8 +43,9 @@ function SignIn({ onSignedIn, notice }: { onSignedIn: (a: RithmicAdapter) => voi
   const [remembered] = useState(loadRemembered);
   const [startGateway] = useState(() => remembered?.gateway || config.gateway);
   const [gateway, setGateway] = useState(startGateway);
-  const [systems, setSystems] = useState<string[]>(remembered?.systemName ? [remembered.systemName] : []);
-  const [systemName, setSystemName] = useState(remembered?.systemName ?? "");
+  const [startSystem] = useState(() => remembered?.systemName || config.systemName);
+  const [systems, setSystems] = useState<string[]>(startSystem ? [startSystem] : []);
+  const [systemName, setSystemName] = useState(startSystem);
   const [user, setUser] = useState(remembered?.user ?? "");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(remembered !== null);
@@ -69,7 +70,10 @@ function SignIn({ onSignedIn, notice }: { onSignedIn: (a: RithmicAdapter) => voi
       const list = await listRithmicSystems(url);
       if (seq !== loadSeq.current) return;
       setSystems(list);
-      setSystemName((cur) => (cur && list.includes(cur) ? cur : (list[0] ?? "")));
+      // Keep the current pick, else the configured default, else the first listed.
+      setSystemName((cur) =>
+        cur && list.includes(cur) ? cur : config.systemName && list.includes(config.systemName) ? config.systemName : (list[0] ?? ""),
+      );
     } catch (err) {
       if (seq !== loadSeq.current) return;
       setError(err instanceof Error ? err.message : String(err));

@@ -2,8 +2,11 @@
  * Build-time configuration for the Rithmic adapter. This is the only Rithmic
  * module that reads `import.meta.env`; everything else takes a `RithmicConfig`.
  *
- *   VITE_RITHMIC_GATEWAY      wss URL of the R|Protocol gateway
- *                             (default: the Rithmic test gateway)
+ *   VITE_RITHMIC_GATEWAY      wss URL of the gateway preselected at sign-in
+ *                             (default: the first of RITHMIC_GATEWAYS, Chicago)
+ *   VITE_RITHMIC_SYSTEM_NAME  system preselected at sign-in, e.g.
+ *                             "Rithmic Paper Trading" (default: none, so the
+ *                             first system the gateway lists)
  *   VITE_RITHMIC_APP_NAME     app name sent at login. Production systems only
  *   VITE_RITHMIC_APP_VERSION  accept names that passed Rithmic conformance.
  *   VITE_RITHMIC_PRODUCTS     comma-separated PRODUCT:EXCHANGE list, resolved to
@@ -15,8 +18,6 @@
  * roll rule below) because RequestFrontMonthContract does not answer on the
  * Rithmic test system. Other products still go through that request.
  */
-
-export const RITHMIC_TEST_GATEWAY = "wss://rituz00100.rithmic.com:443";
 
 export interface RithmicGateway {
   /** Location shown on the sign-in screen, e.g. "Chicago". */
@@ -39,7 +40,7 @@ export const RITHMIC_GATEWAYS: readonly RithmicGateway[] = [
   { name: "Singapore", url: "wss://rprotocol-sg.rithmic.com:443" },
   { name: "Sydney", url: "wss://rprotocol-au.rithmic.com:443" },
   { name: "Tokyo", url: "wss://rprotocol-jp.rithmic.com:443" },
-  { name: "Test", url: RITHMIC_TEST_GATEWAY },
+  { name: "Test", url: "wss://rituz00100.rithmic.com:443" },
 ];
 
 export interface RithmicProduct {
@@ -56,7 +57,10 @@ export interface RithmicProduct {
 }
 
 export interface RithmicConfig {
+  /** Gateway preselected on the sign-in screen. */
   gateway: string;
+  /** System preselected on the sign-in screen; empty means the first one listed. */
+  systemName: string;
   appName: string;
   appVersion: string;
   templateVersion: string;
@@ -153,7 +157,8 @@ export function getRithmicConfig(
   const overrides = parseContracts(env.VITE_RITHMIC_CONTRACTS);
   const products = (listed.length > 0 ? listed : DEFAULT_PRODUCTS).map((p) => withManualContract(p, overrides, now));
   return {
-    gateway: env.VITE_RITHMIC_GATEWAY?.trim() || RITHMIC_TEST_GATEWAY,
+    gateway: env.VITE_RITHMIC_GATEWAY?.trim() || RITHMIC_GATEWAYS[0]!.url,
+    systemName: env.VITE_RITHMIC_SYSTEM_NAME?.trim() ?? "",
     appName: env.VITE_RITHMIC_APP_NAME?.trim() || "OpenCharts",
     appVersion: env.VITE_RITHMIC_APP_VERSION?.trim() || "0.3.0",
     templateVersion: "3.9",

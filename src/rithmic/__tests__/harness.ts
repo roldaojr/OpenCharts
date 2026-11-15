@@ -9,6 +9,7 @@ import { FakeRithmicSocketCtor, server, type Frame } from "./fakeRithmic.ts";
 
 export const CONFIG: RithmicConfig = {
   gateway: "wss://fake.rithmic.example:443",
+  systemName: "Rithmic Test",
   appName: "OpenCharts",
   appVersion: "test",
   templateVersion: "3.9",

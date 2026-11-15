@@ -14,10 +14,11 @@ VITE_ADAPTER=rithmic npm run dev
 The app opens on a sign-in screen:
 
 1. Pick the **gateway** from the list of Rithmic R|Protocol locations (Chicago,
-   Frankfurt, Sao Paulo, ..., `RITHMIC_GATEWAYS` in `config.ts`). It defaults
-   to Test, `wss://rituz00100.rithmic.com:443`.
+   Frankfurt, Sao Paulo, ..., `RITHMIC_GATEWAYS` in `config.ts`). The
+   preselected one is `VITE_RITHMIC_GATEWAY`, else the first listed (Chicago).
 2. The **system** list is fetched from the gateway whenever you pick one, e.g.
-   "Rithmic Test" or "Rithmic Paper Trading".
+   "Rithmic Test" or "Rithmic Paper Trading". `VITE_RITHMIC_SYSTEM_NAME` is
+   preselected when the gateway offers it, else the first system listed.
 3. Enter your **user** and **password**.
 
 The password is held only by the live session, which needs it to log in again after
@@ -29,7 +30,8 @@ gateway, system and user.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `VITE_ADAPTER` | – | Set to `rithmic` to boot this adapter. |
-| `VITE_RITHMIC_GATEWAY` | `wss://rituz00100.rithmic.com:443` | Gateway preselected on the sign-in screen. A URL outside the list shows as "Custom". |
+| `VITE_RITHMIC_GATEWAY` | first of the list (Chicago) | Gateway preselected on the sign-in screen. A URL outside the list shows as "Custom". |
+| `VITE_RITHMIC_SYSTEM_NAME` | – (first listed) | System preselected on the sign-in screen, e.g. `Rithmic Paper Trading`. |
 | `VITE_RITHMIC_APP_NAME` / `VITE_RITHMIC_APP_VERSION` | `OpenCharts` / `0.3.0` | Sent at login. **Production systems only accept an app name that passed Rithmic conformance.** The test system accepts any name. |
 | `VITE_RITHMIC_PRODUCTS` | ES, MES, NQ, MNQ (CME) | `PRODUCT:EXCHANGE` list shown in the terminal. |
 | `VITE_RITHMIC_CONTRACTS` | – | Pins the manual contracts, e.g. `ES:ESH7,MES:MESH7`. |
