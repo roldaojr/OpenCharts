@@ -55,7 +55,7 @@ type PositionWsEvent = {
   unrealizedPnl?: number;
   quantity?: number;
   averagePrice?: number;
-  // Attached by ws-handler enrichment (PositionOpened only)
+  // The full position, when the adapter sends it (opened, and updated with a mark price)
   _entity?: Position;
 };
 
@@ -122,9 +122,17 @@ function bufferPositionOpened(
       _positionBatchTimers.delete(accountId);
       if (entities.length === 0) return;
 
+      // No list loaded yet: fetch the whole list rather than seed one with
+      // only these entities (which would hide every other open position).
+      if (!queryClient.getQueryData<Position[]>(posKey)) {
+        coalesceInvalidation(queryClient, posKey);
+        return;
+      }
+
       startTransition(() => {
         queryClient.setQueryData<Position[]>(posKey, (old) => {
-          let next = [...(old ?? [])];
+          if (!old) return old;
+          let next = [...old];
           for (const e of entities) {
             // Evict any optimistic placeholder for this symbol+side (D cleanup)
             next = next.filter(
@@ -266,16 +274,24 @@ export function MarketDataBridge() {
         return;
       }
 
+      // Events only patch a list that has been loaded. Patching an absent one
+      // would cache [] as fresh data: an adapter that streams P&L before the
+      // first fetch (the Rithmic simulator) then keeps it "fresh" forever and
+      // the open positions never show.
       if (ev.eventType === "PositionUpdated") {
         startTransition(() => {
           queryClient.setQueryData<Position[]>(posKey, (old) =>
-            (old ?? []).map((p) =>
+            old?.map((p) =>
               p.id === ev.positionId
                 ? {
                     ...p,
-                    unrealizedPnl: ev.unrealizedPnl ?? p.unrealizedPnl,
+                    unrealizedPnl: ev.unrealizedPnl ?? ev._entity?.unrealizedPnl ?? p.unrealizedPnl,
                     quantity: ev.quantity ?? p.quantity,
                     entryPrice: ev.averagePrice ?? p.entryPrice,
+                    // The P&L and the price it was marked at must stay a pair:
+                    // live P&L scales unrealizedPnl by (price - entry) / (currentPrice - entry),
+                    // so a stale currentPrice skews every figure in between.
+                    currentPrice: ev._entity?.currentPrice ?? p.currentPrice,
                   }
                 : p,
             ),
@@ -287,7 +303,7 @@ export function MarketDataBridge() {
       if (ev.eventType === "PositionClosed") {
         startTransition(() => {
           queryClient.setQueryData<Position[]>(posKey, (old) =>
-            (old ?? []).filter((p) => p.id !== ev.positionId),
+            old?.filter((p) => p.id !== ev.positionId),
           );
         });
         // Closed positions list needs a refresh — coalesced so burst closes → 1 fetch
@@ -323,10 +339,15 @@ export function MarketDataBridge() {
           ev.eventType === "OrderCanceled")
       ) {
         const entity = ev._entity;
+        // No list loaded yet: fetch it whole instead of seeding [entity].
+        if (!queryClient.getQueryData<Order[]>(ordKey)) {
+          coalesceInvalidation(queryClient, ordKey);
+          return;
+        }
         startTransition(() => {
           // Upsert: replace if exists, append if new
           queryClient.setQueryData<Order[]>(ordKey, (old) => {
-            if (!old) return [entity];
+            if (!old) return old;
             const idx = old.findIndex((o) => o.id === entity.id);
             if (idx >= 0) {
               const next = [...old];
