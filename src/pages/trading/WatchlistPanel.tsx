@@ -1,8 +1,9 @@
 import { lazy, Suspense, useState, useCallback, useMemo } from "react";
+import { useSymbolPriceFormat } from "../../hooks/useSymbolPriceFormat.ts";
 import { Star } from "lucide-react";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
-import { formatNumber, cn } from "../../lib/utils.ts";
+import { cn } from "../../lib/utils.ts";
 import { toast } from "../../services/toast.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
@@ -54,6 +55,7 @@ function GenericWatchlistPanel({
   const [filter, setFilter] = useState("");
   const placeOrder = usePlaceOrder();
   const { qty: rules } = useInstrumentLabels();
+  const fmtPrice = useSymbolPriceFormat();
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
@@ -200,8 +202,8 @@ function GenericWatchlistPanel({
               {t ? (
                 <div className="flex items-center gap-1">
                   <div className="text-right font-mono">
-                    <div className="text-buy">{formatNumber(t.bid, 5)}</div>
-                    <div className="text-sell">{formatNumber(t.ask, 5)}</div>
+                    <div className="text-buy">{fmtPrice(s.name, t.bid)}</div>
+                    <div className="text-sell">{fmtPrice(s.name, t.ask)}</div>
                   </div>
                   {oneClick && (
                     <div className="hidden group-hover:flex flex-col gap-0.5 ml-1">

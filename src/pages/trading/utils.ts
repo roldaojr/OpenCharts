@@ -1,5 +1,6 @@
 import type { CandlestickData, Time } from "lightweight-charts";
 import type { CandleData } from "../../lib/indicators.ts";
+import { formatNumber } from "../../lib/utils.ts";
 import { KNOWN_CURRENCIES } from "./constants.ts";
 import type { Timeframe } from "./constants.ts";
 
@@ -49,6 +50,21 @@ export function tickDecimals(tickSize: number | undefined): number | null {
     if (Math.abs(scaled - Math.round(scaled)) < 1e-9) return d;
   }
   return 10;
+}
+
+type PriceSymbolInfo = { tickSize?: number | string; category?: string | null };
+
+/** Formats a price with the symbol's tick decimals: ES 5000.25 → "5,000.25". */
+export function formatSymbolPrice(price: number, symbolInfo?: PriceSymbolInfo, symbolName?: string): string {
+  return formatNumber(price, getPipDigits(symbolInfo, symbolName));
+}
+
+/** A `(symbolName, price) => string` formatter that looks each symbol up in `symbols`. */
+export function priceFormatterFor(
+  symbols: readonly (PriceSymbolInfo & { name: string })[],
+): (symbolName: string, price: number) => string {
+  const byName = new Map(symbols.map((s) => [s.name, s]));
+  return (symbolName, price) => formatSymbolPrice(price, byName.get(symbolName), symbolName);
 }
 
 /** The price the chart tracks: the last trade when the feed reports one, else the mid. */

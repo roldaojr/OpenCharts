@@ -18,6 +18,7 @@ import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.
 import type { PlaceOrderInput } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
 import { formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
+import { getPipDigits } from "./utils.ts";
 
 import type { ConfirmOrderState } from "../../terminal/use-terminal.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
@@ -41,6 +42,8 @@ export interface OrderPanelProps {
     name?: string;
     description?: string;
     pipSize?: number;
+    tickSize?: number;
+    category?: string | null;
     pricescale?: number;
     contractSize?: number;
     marginPercent?: number;
@@ -91,6 +94,7 @@ function GenericOrderPanel({
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
   const { qty: rules, unitLabel } = useInstrumentLabels();
+  const priceDigits = getPipDigits(symbolInfo, symbol);
   const [quantity, setQuantity] = useState(() => {
     const raw = readTraderPrefs().defaultQty;
     const n = raw ? parseFloat(raw) : NaN;
@@ -292,7 +296,7 @@ function GenericOrderPanel({
             className="text-xs"
           >
             <TrendingUp className="h-3 w-3 mr-1" />
-            BUY {tick ? formatNumber(tick.ask, 5) : ""}
+            BUY {tick ? formatNumber(tick.ask, priceDigits) : ""}
           </Button>
           <Button
             variant={side === "SELL" ? "sell" : "outline"}
@@ -301,7 +305,7 @@ function GenericOrderPanel({
             className="text-xs"
           >
             <TrendingDown className="h-3 w-3 mr-1" />
-            SELL {tick ? formatNumber(tick.bid, 5) : ""}
+            SELL {tick ? formatNumber(tick.bid, priceDigits) : ""}
           </Button>
         </div>
 
@@ -380,7 +384,7 @@ function GenericOrderPanel({
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder={tick ? formatNumber(side === "BUY" ? tick.ask : tick.bid, 5) : ""}
+              placeholder={tick ? formatNumber(side === "BUY" ? tick.ask : tick.bid, priceDigits) : ""}
               className="w-full mt-1 text-sm font-mono"
               step="0.00001"
             />

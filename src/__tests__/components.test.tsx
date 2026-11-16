@@ -56,7 +56,7 @@ afterEach(() => {
 describe("OrderPanel", () => {
   it("renders the current bid and ask on the side buttons", () => {
     renderOrderPanel();
-    // Prices are rendered through Intl, i.e. "50,005.00000".
+    // Prices are rendered through Intl with the symbol's decimals, i.e. "50,005.00".
     expect(screen.getByRole("button", { name: /BUY\s+50,005/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /SELL\s+49,995/ })).toBeInTheDocument();
   });

@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useSymbolPriceFormat } from "../../hooks/useSymbolPriceFormat.ts";
 import { api } from "../../services/api";
 import { toast } from "../../services/toast";
-import { cn, formatCurrency, formatNumber } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
 import {
@@ -46,6 +47,7 @@ export function PositionModifyDialog({
   isFeedConnected = true,
 }: PositionModifyDialogProps) {
   const { formatQty, unitLabel, isFutures, instrumentType, qty: rules } = useInstrumentLabels();
+  const fmtPrice = useSymbolPriceFormat();
   // Mounted with `key={position.id}` by the parent, so switching positions
   // gives a fresh instance and these initialisers run against the new one.
   // (Previously an effect copied the position into state after mount, which is
@@ -199,7 +201,7 @@ export function PositionModifyDialog({
               <div>
                 <h3 className="text-sm font-semibold">Modify {position.symbolName}</h3>
                 <p className="text-[10px] text-muted-foreground">
-                  {position.side} {position.quantity} @ {formatNumber(position.entryPrice, 5)}
+                  {position.side} {position.quantity} @ {fmtPrice(position.symbolName, position.entryPrice)}
                 </p>
               </div>
             </div>
@@ -212,7 +214,7 @@ export function PositionModifyDialog({
           <div className="px-5 py-3 grid grid-cols-3 gap-3 border-b border-border/40 text-center">
             <div>
               <div className="text-[10px] text-muted-foreground">Current</div>
-              <div className="text-sm font-mono font-semibold">{formatNumber(currentPrice, 5)}</div>
+              <div className="text-sm font-mono font-semibold">{fmtPrice(position.symbolName, currentPrice)}</div>
             </div>
             <div>
               <div className="text-[10px] text-muted-foreground">P&L</div>
@@ -355,7 +357,7 @@ export function PositionModifyDialog({
                       className="text-[10px] h-5 text-muted-foreground"
                       onClick={handleSetBreakeven}
                     >
-                      Breakeven ({formatNumber(position.entryPrice, 5)})
+                      Breakeven ({fmtPrice(position.symbolName, position.entryPrice)})
                     </Button>
                     {sl && (
                       <Button

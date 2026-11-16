@@ -23,19 +23,25 @@ interface PositionRow {
   leverage?: number;
 }
 
+const defaultFormatPrice = (_symbolName: string, price: number) => formatNumber(price, 5);
+
 export function PositionsTable({
   positions,
   onClose,
   onModify,
   onPartialClose,
   onSelectSymbol,
+  formatPrice,
 }: {
   positions: PositionRow[];
   onClose: (id: string) => void;
   onModify?: (p: PositionRow) => void;
   onPartialClose?: (id: string, quantity: number) => void;
   onSelectSymbol?: (symbolName: string) => void;
+  /** Formats a price for its symbol; defaults to 5 fixed decimals. */
+  formatPrice?: (symbolName: string, price: number) => string;
 }) {
+  const fmt = formatPrice ?? defaultFormatPrice;
   const [partialCloseId, setPartialCloseId] = useState<string | null>(null);
   const [partialQty, setPartialQty] = useState("");
   const { qty: rules, unitLabel } = useInstrumentLabels();
@@ -114,15 +120,15 @@ export function PositionsTable({
             <td className="font-semibold">{p.symbolName}</td>
             <td className={p.side === "LONG" ? "text-buy" : "text-sell"}>{p.side}</td>
             <td className="font-mono">{p.quantity}</td>
-            <td className="font-mono">{formatNumber(p.entryPrice, 5)}</td>
-            <td className="font-mono">{p.currentPrice ? formatNumber(p.currentPrice, 5) : "--"}</td>
+            <td className="font-mono">{fmt(p.symbolName, p.entryPrice)}</td>
+            <td className="font-mono">{p.currentPrice ? fmt(p.symbolName, p.currentPrice) : "--"}</td>
             <td className={cn("font-mono font-semibold", pnlClass(p.unrealizedPnl))}>
               {p.unrealizedPnl >= 0 ? "+" : ""}
               {formatCurrency(p.unrealizedPnl)}
             </td>
             {showLiq && (
               <td className="font-mono text-warning" data-testid="liq-price">
-                {p.liquidationPx ? formatNumber(p.liquidationPx, 5) : "--"}
+                {p.liquidationPx ? fmt(p.symbolName, p.liquidationPx) : "--"}
               </td>
             )}
             {showFunding && (
@@ -137,10 +143,10 @@ export function PositionsTable({
               </td>
             )}
             <td className="font-mono text-sell">
-              {p.stopLoss ? formatNumber(p.stopLoss, 5) : "--"}
+              {p.stopLoss ? fmt(p.symbolName, p.stopLoss) : "--"}
             </td>
             <td className="font-mono text-buy">
-              {p.takeProfit ? formatNumber(p.takeProfit, 5) : "--"}
+              {p.takeProfit ? fmt(p.symbolName, p.takeProfit) : "--"}
             </td>
             <td className="text-muted-foreground">{formatDate(p.openedAt)}</td>
             <td>

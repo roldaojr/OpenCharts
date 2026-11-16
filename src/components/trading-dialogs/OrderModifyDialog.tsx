@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useSymbolPriceFormat } from "../../hooks/useSymbolPriceFormat.ts";
 import { api } from "../../services/api";
 import { toast } from "../../services/toast";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { X, SlidersHorizontal } from "lucide-react";
 import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
@@ -31,6 +32,7 @@ interface OrderModifyDialogProps {
  */
 export function OrderModifyDialog({ order, onClose, onSaved, tick }: OrderModifyDialogProps) {
   const { unitLabelCap, unitLabel, isFutures, qty: rules } = useInstrumentLabels();
+  const fmtPrice = useSymbolPriceFormat();
   const [price, setPrice] = useState(() =>
     order?.price != null
       ? String(order.price)
@@ -176,10 +178,10 @@ export function OrderModifyDialog({ order, onClose, onSaved, tick }: OrderModify
             {tick && (
               <div className="text-[10px] text-muted-foreground flex gap-3">
                 <span>
-                  Bid: <span className="font-mono text-sell">{formatNumber(tick.bid, 5)}</span>
+                  Bid: <span className="font-mono text-sell">{fmtPrice(order.symbolName, tick.bid)}</span>
                 </span>
                 <span>
-                  Ask: <span className="font-mono text-buy">{formatNumber(tick.ask, 5)}</span>
+                  Ask: <span className="font-mono text-buy">{fmtPrice(order.symbolName, tick.ask)}</span>
                 </span>
               </div>
             )}

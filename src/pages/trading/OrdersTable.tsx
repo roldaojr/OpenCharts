@@ -14,17 +14,23 @@ interface OrderRow {
   createdAt: string | Date;
 }
 
+const defaultFormatPrice = (_symbolName: string, price: number) => formatNumber(price, 5);
+
 export function OrdersTable({
   orders,
   onCancel,
   onModify,
   onSelectSymbol,
+  formatPrice,
 }: {
   orders: OrderRow[];
   onCancel: (id: string) => void;
   onModify?: (order: OrderRow) => void;
   onSelectSymbol?: (symbolName: string) => void;
+  /** Formats a price for its symbol; defaults to 5 fixed decimals. */
+  formatPrice?: (symbolName: string, price: number) => string;
 }) {
+  const fmt = formatPrice ?? defaultFormatPrice;
   if (orders.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
@@ -72,16 +78,16 @@ export function OrdersTable({
             <td className="font-mono">{o.quantity}</td>
             <td className="font-mono">
               {o.price
-                ? formatNumber(o.price, 5)
+                ? fmt(o.symbolName, o.price)
                 : o.stopPrice
-                  ? formatNumber(o.stopPrice, 5)
+                  ? fmt(o.symbolName, o.stopPrice)
                   : "MKT"}
             </td>
             <td className="font-mono text-sell">
-              {o.stopLoss ? formatNumber(o.stopLoss, 5) : "--"}
+              {o.stopLoss ? fmt(o.symbolName, o.stopLoss) : "--"}
             </td>
             <td className="font-mono text-buy">
-              {o.takeProfit ? formatNumber(o.takeProfit, 5) : "--"}
+              {o.takeProfit ? fmt(o.symbolName, o.takeProfit) : "--"}
             </td>
             <td>{o.status}</td>
             <td className="text-muted-foreground">{formatDate(o.createdAt)}</td>

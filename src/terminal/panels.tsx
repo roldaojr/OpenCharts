@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import { ChartPanel } from "../pages/trading/ChartPanel.tsx";
 import { DOMPanel } from "../pages/trading/DOMPanel.tsx";
 import { OrderPanel } from "../pages/trading/OrderPanel.tsx";
 import { OrdersTable } from "../pages/trading/OrdersTable.tsx";
 import { PositionsTable } from "../pages/trading/PositionsTable.tsx";
 import { WatchlistPanel } from "../pages/trading/WatchlistPanel.tsx";
+import { priceFormatterFor } from "../pages/trading/utils.ts";
 import { useTerminal } from "./use-terminal.ts";
 
 /**
@@ -102,6 +104,7 @@ export function Watchlist() {
 /** Open positions, with close / partial close / modify wired up. */
 export function Positions() {
   const t = useTerminal();
+  const formatPrice = useMemo(() => priceFormatterFor(t.symbols), [t.symbols]);
   return (
     <PositionsTable
       positions={t.positions}
@@ -111,6 +114,7 @@ export function Positions() {
         t.editPosition(t.positions.find((p) => p.id === row.id) ?? null)
       }
       onSelectSymbol={t.setSelectedSymbol}
+      formatPrice={formatPrice}
     />
   );
 }
@@ -118,12 +122,14 @@ export function Positions() {
 /** Working orders, with cancel and modify wired up. */
 export function Orders() {
   const t = useTerminal();
+  const formatPrice = useMemo(() => priceFormatterFor(t.symbols), [t.symbols]);
   return (
     <OrdersTable
       orders={t.orders.filter((o) => o.status === "PENDING" || o.status === "NEW")}
       onCancel={(id) => t.cancelOrder(id)}
       onModify={(row) => t.editOrder(t.orders.find((o) => o.id === row.id) ?? null)}
       onSelectSymbol={t.setSelectedSymbol}
+      formatPrice={formatPrice}
     />
   );
 }

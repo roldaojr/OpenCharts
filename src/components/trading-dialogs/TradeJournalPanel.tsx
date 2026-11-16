@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { useSymbolPriceFormat } from "../../hooks/useSymbolPriceFormat.ts";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Star, Pencil, Trash2, Plus } from "lucide-react";
 
@@ -50,6 +51,7 @@ export function TradeJournalPanel({
   onUpdateEntry,
   onDeleteEntry,
 }: TradeJournalPanelProps) {
+  const fmtPrice = useSymbolPriceFormat();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [symbolName, setSymbolName] = useState("");
@@ -346,9 +348,9 @@ export function TradeJournalPanel({
                 )}
                 <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
                   {entry.entryPrice != null && (
-                    <span>Entry: {formatNumber(entry.entryPrice, 5)}</span>
+                    <span>Entry: {fmtPrice(entry.symbolName ?? "", entry.entryPrice)}</span>
                   )}
-                  {entry.exitPrice != null && <span>Exit: {formatNumber(entry.exitPrice, 5)}</span>}
+                  {entry.exitPrice != null && <span>Exit: {fmtPrice(entry.symbolName ?? "", entry.exitPrice)}</span>}
                   <span>{formatDate(entry.createdAt)}</span>
                 </div>
               </div>

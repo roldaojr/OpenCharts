@@ -1,4 +1,5 @@
-import { cn, formatCurrency, formatNumber } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import { useSymbolPriceFormat } from "../../hooks/useSymbolPriceFormat.ts";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
@@ -47,6 +48,7 @@ export function OrderConfirmDialog({
   loading,
 }: OrderConfirmDialogProps) {
   const { formatQty } = useInstrumentLabels();
+  const fmtPrice = useSymbolPriceFormat();
   if (!isOpen || !order) return null;
 
   const executionPrice =
@@ -112,11 +114,11 @@ export function OrderConfirmDialog({
             />
             <Row label="Type" value={order.type} />
             <Row label="Volume" value={formatQty(order.quantity)} />
-            {executionPrice && <Row label="Price" value={formatNumber(executionPrice, 5)} />}
+            {executionPrice && <Row label="Price" value={fmtPrice(order.symbol, executionPrice)} />}
             {order.takeProfit && (
               <Row
                 label="Take Profit"
-                value={formatNumber(order.takeProfit, 5)}
+                value={fmtPrice(order.symbol, order.takeProfit)}
                 extra={
                   tpPnl !== null ? `(${tpPnl >= 0 ? "+" : ""}${formatCurrency(tpPnl)})` : undefined
                 }
@@ -126,7 +128,7 @@ export function OrderConfirmDialog({
             {order.stopLoss && (
               <Row
                 label="Stop Loss"
-                value={formatNumber(order.stopLoss, 5)}
+                value={fmtPrice(order.symbol, order.stopLoss)}
                 extra={
                   slPnl !== null ? `(${slPnl >= 0 ? "+" : ""}${formatCurrency(slPnl)})` : undefined
                 }

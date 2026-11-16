@@ -22,10 +22,11 @@ import {
   isTradingViewAllowed,
 } from "../../components/TradingViewWidgets.tsx";
 import { toast } from "../../services/toast.ts";
-import { formatCurrency, formatNumber, formatDate, cn, pnlClass } from "../../lib/utils.ts";
+import { formatCurrency, formatDate, cn, pnlClass } from "../../lib/utils.ts";
 import { MOCK_EVENTS, MOCK_NEWS, NEWS_ENABLED } from "./constants.ts";
 import { PositionsTable } from "./PositionsTable.tsx";
 import { OrdersTable } from "./OrdersTable.tsx";
+import { useSymbolPriceFormat } from "../../hooks/useSymbolPriceFormat.ts";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
 
@@ -85,6 +86,7 @@ export function BottomPanel({
   const cancelOrder = useCancelOrder();
   const closePosition = useClosePosition();
   const { formatQty } = useInstrumentLabels();
+  const formatPrice = useSymbolPriceFormat();
   const closeAllPositions = useCloseAllPositions();
   const accounts = useTradingStore((s) => s.accounts as AccountOption[]);
   const activeAccount = accounts.find((account) => account.id === accountId);
@@ -275,6 +277,7 @@ export function BottomPanel({
             onModify={onModifyPosition as unknown as ((p: { id: string }) => void) | undefined}
             onPartialClose={handlePartialClose}
             onSelectSymbol={onSelectPositionSymbol}
+            formatPrice={formatPrice}
           />
         )}
         {tab === "orders" && (
@@ -283,6 +286,7 @@ export function BottomPanel({
             onCancel={handleCancel}
             onModify={onModifyOrder as unknown as ((order: { id: string }) => void) | undefined}
             onSelectSymbol={onSelectOrderSymbol}
+            formatPrice={formatPrice}
           />
         )}
         {tab === "history" && <TradeHistoryTable accountId={accountId} />}
@@ -321,6 +325,7 @@ export function BottomPanel({
 // ── Trade History Table ──────────────────────────────────────
 function TradeHistoryTable({ accountId }: { accountId: string | null }) {
   const [page, setPage] = useState(1);
+  const fmtPrice = useSymbolPriceFormat();
   const { data: closedData, isLoading } = useClosedPositions(accountId, page);
   const trades: ClosedWithPlatformFee[] = closedData?.data || [];
   const showPlatformFee = trades.some((t) => t.platformFee !== undefined);
@@ -386,8 +391,8 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
                 <td className="font-semibold">{t.symbolName}</td>
                 <td className={t.side === "LONG" ? "text-buy" : "text-sell"}>{t.side}</td>
                 <td className="font-mono">{t.quantity}</td>
-                <td className="font-mono">{t.entryPrice ? formatNumber(t.entryPrice, 5) : "--"}</td>
-                <td className="font-mono">{t.exitPrice ? formatNumber(t.exitPrice, 5) : "--"}</td>
+                <td className="font-mono">{t.entryPrice ? fmtPrice(t.symbolName, t.entryPrice) : "--"}</td>
+                <td className="font-mono">{t.exitPrice ? fmtPrice(t.symbolName, t.exitPrice) : "--"}</td>
                 <td
                   className="font-mono text-muted-foreground"
                   title={
