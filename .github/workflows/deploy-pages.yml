@@ -7,10 +7,13 @@ name: Deploy to Pages
 # - Settings → Pages → Source: GitHub Actions.
 # - Settings → Environments → github-pages → Deployment branches: allow every
 #   branch listed under `push` below (by default only the default branch may deploy).
-# - Optional Actions variables: VITE_RITHMIC_GATEWAY and VITE_RITHMIC_SYSTEM_NAME
-#   (default here: Chicago and "Rithmic Paper Trading"), VITE_RITHMIC_APP_NAME,
-#   VITE_RITHMIC_APP_VERSION, VITE_RITHMIC_PRODUCTS. Unset ones fall back to the
-#   defaults in src/rithmic/config.ts ("OpenCharts", ES/MES/NQ/MNQ).
+# - Optional variables, on the github-pages environment or the repository:
+#   VITE_RITHMIC_GATEWAY and VITE_RITHMIC_SYSTEM_NAME (default here: Chicago and
+#   "Rithmic Paper Trading"), VITE_RITHMIC_APP_NAME, VITE_RITHMIC_APP_VERSION,
+#   VITE_RITHMIC_PRODUCTS. The app name and version may also be secrets.
+#   Unset ones fall back to the defaults in src/rithmic/config.ts
+#   ("OpenCharts", ES/MES/NQ/MNQ). Production systems (prop firms) only accept
+#   an app name approved in Rithmic conformance on the order plant.
 
 on:
   push:
@@ -33,6 +36,12 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Exposes the github-pages environment's variables and secrets to the build.
+    environment:
+      name: github-pages
+    env:
+      RITHMIC_APP_NAME: ${{ vars.VITE_RITHMIC_APP_NAME || secrets.VITE_RITHMIC_APP_NAME }}
+      RITHMIC_APP_VERSION: ${{ vars.VITE_RITHMIC_APP_VERSION || secrets.VITE_RITHMIC_APP_VERSION }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +52,12 @@ jobs:
 
       - run: npm ci
 
+      # Values stored as secrets show as *** here, which still confirms they are set.
+      - name: Show Rithmic app identity
+        run: |
+          echo "App name:    ${RITHMIC_APP_NAME:-(unset, default OpenCharts)}"
+          echo "App version: ${RITHMIC_APP_VERSION:-(unset, default 0.3.0)}"
+
       # BASE_PATH makes asset URLs resolve under /<repo>/ on project Pages.
       # VITE_ADAPTER=rithmic also lets the CSP reach wss://*.rithmic.com.
       - name: Build
@@ -51,8 +66,8 @@ jobs:
           BASE_PATH: /${{ github.event.repository.name }}/
           VITE_ADAPTER: rithmic
           VITE_RITHMIC_GATEWAY: ${{ vars.VITE_RITHMIC_GATEWAY || 'wss://rprotocol-mobile.rithmic.com:443' }}
-          VITE_RITHMIC_APP_NAME: ${{ vars.VITE_RITHMIC_APP_NAME }}
-          VITE_RITHMIC_APP_VERSION: ${{ vars.VITE_RITHMIC_APP_VERSION }}
+          VITE_RITHMIC_APP_NAME: ${{ env.RITHMIC_APP_NAME }}
+          VITE_RITHMIC_APP_VERSION: ${{ env.RITHMIC_APP_VERSION }}
           VITE_RITHMIC_PRODUCTS: ${{ vars.VITE_RITHMIC_PRODUCTS }}
           VITE_RITHMIC_SYSTEM_NAME: ${{ vars.VITE_RITHMIC_SYSTEM_NAME || 'Rithmic Paper Trading' }}
 
