@@ -269,6 +269,23 @@ const _pendingTicks = new Map<string, TickEntry>();
 let _tickRafId: number | null = null;
 const _pendingLiveTicks = new Map<string, TickEntry>();
 let _liveTickRafId: number | null = null;
+// Same per-frame batching for forming candles and account equity. A busy feed
+// (Rithmic: one candle per trade per timeframe, Simulator equity per tick) would
+// otherwise force a synchronous render per message and trip React's nested
+// update limit ("Maximum update depth exceeded").
+const _pendingCandles = new Map<string, CandleBar>();
+let _candleRafId: number | null = null;
+const _pendingAccounts = new Map<string, Partial<Account> & Pick<Account, "id">>();
+let _accountRafId: number | null = null;
+
+/** Drops forming candles not yet written, e.g. when the chart's live candles are reset. */
+function _discardPendingCandles(): void {
+  _pendingCandles.clear();
+  if (_candleRafId !== null) {
+    cancelAnimationFrame(_candleRafId);
+    _candleRafId = null;
+  }
+}
 
 /** Per-symbol decimal precision cache — populated on first tick, avoids O(n) symbol lookup per tick */
 const _symbolDecimals = new Map<string, number>();
@@ -368,11 +385,20 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   },
 
   updateAccountInStore: (updated) => {
-    set((state) => ({
-      accounts: state.accounts.map((account) =>
-        account.id === updated.id ? { ...account, ...updated } : account,
-      ),
-    }));
+    // Merge into the frame's buffer; one set() per frame applies every account.
+    _pendingAccounts.set(updated.id, { ..._pendingAccounts.get(updated.id), ...updated });
+    if (_accountRafId !== null) return;
+    _accountRafId = requestAnimationFrame(() => {
+      const updates = new Map(_pendingAccounts);
+      _pendingAccounts.clear();
+      _accountRafId = null;
+      set((state) => ({
+        accounts: state.accounts.map((account) => {
+          const u = updates.get(account.id);
+          return u ? { ...account, ...u } : account;
+        }),
+      }));
+    });
   },
 
   loadPositions: async () => {
@@ -489,23 +515,31 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   },
 
   updateCandleFromWs: (symbol, timeframe, bar) => {
-    const key = `${symbol}:${timeframe}`;
-    set((state) => ({
-      liveCandleUpdates: { ...state.liveCandleUpdates, [key]: bar },
-    }));
+    // The latest bar per symbol:timeframe wins; one set() per frame.
+    _pendingCandles.set(`${symbol}:${timeframe}`, bar);
+    if (_candleRafId !== null) return;
+    _candleRafId = requestAnimationFrame(() => {
+      const updates = Object.fromEntries(_pendingCandles);
+      _pendingCandles.clear();
+      _candleRafId = null;
+      set((state) => ({ liveCandleUpdates: { ...state.liveCandleUpdates, ...updates } }));
+    });
   },
 
-  setSelectedSymbol: (symbol) =>
+  setSelectedSymbol: (symbol) => {
+    if (get().selectedSymbol !== symbol) _discardPendingCandles();
     set((state) =>
       state.selectedSymbol === symbol
         ? { selectedSymbol: symbol }
         : { selectedSymbol: symbol, liveCandleUpdates: {} },
-    ),
+    );
+  },
   setPositions: (positions) => set({ positions }),
   setOrders: (orders) => set({ orders }),
   setReplaySessionDate: (date) => set({ replaySessionDate: date }),
 
   onReplayStateChanged: (action, opts) => {
+    _discardPendingCandles();
     set((state) => nextReplayState(state, action, opts));
   },
 }));
